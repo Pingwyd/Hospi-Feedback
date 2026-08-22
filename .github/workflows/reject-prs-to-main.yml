@@ -1,0 +1,16 @@
+name: reject-prs-to-main
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  reject:
+    name: PRs must target dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail pull requests opened against main
+        run: |
+          echo "Pull requests must target the dev branch, never main."
+          echo "Close this PR and reopen it against dev."
+          exit 1

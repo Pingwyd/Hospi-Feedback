@@ -1,0 +1,40 @@
+# Secrets and local env (keep .env.example)
+.env
+.env.*
+!.env.example
+opencode.json
+
+# OpenCode local auth and plugins (tokens live here)
+.opencode/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+dist/
+build/
+*.egg
+
+# Node
+node_modules/
+
+# Supabase local runtime (also listed in supabase/.gitignore)
+supabase/.temp/
+supabase/.branches/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+.vscode/
