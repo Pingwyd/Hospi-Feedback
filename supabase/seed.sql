@@ -1,0 +1,3 @@
+-- Local SQL seed is unused. Categories and the bootstrap HOH admin come from
+-- infra/scripts/seed_local.py (gated off production). This file exists so
+-- supabase db reset does not fail on the default sql_paths entry.
