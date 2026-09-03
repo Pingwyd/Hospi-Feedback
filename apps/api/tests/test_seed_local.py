@@ -3,9 +3,7 @@ from pathlib import Path
 
 from app.exceptions.environment import EnvironmentGuardError
 
-_SEED_PATH = (
-    Path(__file__).resolve().parents[3] / "infra" / "scripts" / "seed_local.py"
-)
+_SEED_PATH = Path(__file__).resolve().parents[3] / "infra" / "scripts" / "seed_local.py"
 
 
 def _load_seed_module():
