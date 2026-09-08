@@ -10,6 +10,11 @@ from app.exceptions.auth import (
     PermissionDeniedError,
 )
 from app.exceptions.base import AppError
+from app.exceptions.reports import (
+    AttachmentRejectedError,
+    ReportClosedError,
+    ReportNotFoundError,
+)
 
 
 def error_body(code: str, message: str) -> dict[str, object]:
@@ -56,6 +61,31 @@ def register_exception_handlers(app) -> None:
         return JSONResponse(
             status_code=403,
             content=error_body("forbidden", str(exc)),
+        )
+
+    @app.exception_handler(ReportNotFoundError)
+    async def _report_not_found(
+        _request: Request, exc: ReportNotFoundError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content=error_body("not_found", str(exc)),
+        )
+
+    @app.exception_handler(ReportClosedError)
+    async def _report_closed(_request: Request, exc: ReportClosedError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=error_body("conflict", str(exc)),
+        )
+
+    @app.exception_handler(AttachmentRejectedError)
+    async def _attachment_rejected(
+        _request: Request, exc: AttachmentRejectedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=415,
+            content=error_body("unsupported_media_type", str(exc)),
         )
 
     @app.exception_handler(AppError)

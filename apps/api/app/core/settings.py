@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     supabase_anon_key: str
     supabase_service_role_key: str
     supabase_jwt_secret: str
+    report_attachments_bucket: str = "report-attachments"
+    report_attachment_max_bytes: int = 5 * 1024 * 1024
 
     @property
     def cookie_secure(self) -> bool:
