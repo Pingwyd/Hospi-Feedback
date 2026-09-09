@@ -1,9 +1,10 @@
 """FastAPI dependencies shared by later phases. Do not copy these per route."""
 
+import hmac
 from collections.abc import Callable
 from typing import Annotated, Any
 
-from fastapi import Cookie, Depends, Header
+from fastapi import Cookie, Depends, Header, HTTPException, status
 
 from app.core.access_session import verify_access_token
 from app.core.admin_auth import (
@@ -14,6 +15,7 @@ from app.core.admin_auth import (
 from app.core.settings import Settings, get_settings
 from app.exceptions.access import AccessDeniedError
 from app.exceptions.auth import AdminSessionError, PermissionDeniedError
+from app.services.telegram_admin import resolve_admin_id_from_telegram_chat_id
 
 
 def _bearer_token(authorization: str | None) -> str | None:
@@ -65,3 +67,35 @@ def require_permission(permission: str) -> Callable[..., AdminContext]:
         return admin
 
     return _require_permission
+
+
+def require_bot_service_secret(
+    settings: Annotated[Settings, Depends(get_settings)],
+    x_bot_service_secret: Annotated[str | None, Header()] = None,
+) -> None:
+    """Reject bot-only endpoints when the shared bot secret is missing or wrong."""
+    expected = settings.bot_service_secret.strip()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Bot service secret is not configured.",
+        )
+    provided = (x_bot_service_secret or "").strip()
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid bot service secret.",
+        )
+
+
+def require_bot_admin(
+    telegram_chat_id: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    _bot_secret: Annotated[None, Depends(require_bot_service_secret)],
+) -> AdminContext:
+    """Resolve admin_id from plaintext Telegram chat_id (bot-only routes)."""
+    admin_id = resolve_admin_id_from_telegram_chat_id(
+        telegram_chat_id=telegram_chat_id,
+        settings=settings,
+    )
+    return load_admin_context(admin_id, settings=settings)

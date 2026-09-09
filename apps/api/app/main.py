@@ -3,7 +3,9 @@ from fastapi import FastAPI
 from app.api.errors import register_exception_handlers
 from app.api.routes.access import router as access_router
 from app.api.routes.admin import router as admin_router
+from app.api.routes.admin_telegram import router as admin_telegram_router
 from app.api.routes.phase2 import router as phase2_router
+from app.api.routes.rate_limit import router as rate_limit_router
 from app.api.routes.reports import router as reports_router
 
 
@@ -12,7 +14,9 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     app.include_router(access_router)
     app.include_router(admin_router)
+    app.include_router(admin_telegram_router)
     app.include_router(reports_router)
+    app.include_router(rate_limit_router)
     app.include_router(phase2_router)
     return app
 
