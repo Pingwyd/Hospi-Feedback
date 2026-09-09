@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Hospi Feedback">
+  <rect width="32" height="32" rx="7" fill="#16241F"/>
+  <path
+    fill="#6B8F71"
+    d="M8 23V11.5L16 8l8 3.5V23h-3v-8.5l-5-2.2-5 2.2V23H8z"
+  />
+  <circle cx="16" cy="14.5" r="1.6" fill="#A6803C"/>
+</svg>
