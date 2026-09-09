@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     report_attachments_bucket: str = "report-attachments"
     report_attachment_max_bytes: int = 5 * 1024 * 1024
 
+    bot_service_secret: str = ""
+    telegram_chat_id_encryption_key: str = ""
+    telegram_identifier_pepper: str = ""
+    rate_limit_window_seconds: int = 3600
+    rate_limit_max_requests: int = 20
+    telegram_link_code_ttl_seconds: int = 600
+
     @property
     def cookie_secure(self) -> bool:
         env = self.environment.strip().lower()

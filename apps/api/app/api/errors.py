@@ -10,10 +10,15 @@ from app.exceptions.auth import (
     PermissionDeniedError,
 )
 from app.exceptions.base import AppError
+from app.exceptions.rate_limit import RateLimitExceededError
 from app.exceptions.reports import (
     AttachmentRejectedError,
     ReportClosedError,
     ReportNotFoundError,
+)
+from app.exceptions.telegram_admin import (
+    TelegramAdminNotLinkedError,
+    TelegramLinkRejectedError,
 )
 
 
@@ -86,6 +91,33 @@ def register_exception_handlers(app) -> None:
         return JSONResponse(
             status_code=415,
             content=error_body("unsupported_media_type", str(exc)),
+        )
+
+    @app.exception_handler(TelegramLinkRejectedError)
+    async def _telegram_link_rejected(
+        _request: Request, exc: TelegramLinkRejectedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=401,
+            content=error_body("unauthorized", str(exc)),
+        )
+
+    @app.exception_handler(TelegramAdminNotLinkedError)
+    async def _telegram_admin_not_linked(
+        _request: Request, exc: TelegramAdminNotLinkedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content=error_body("forbidden", str(exc)),
+        )
+
+    @app.exception_handler(RateLimitExceededError)
+    async def _rate_limit_exceeded(
+        _request: Request, exc: RateLimitExceededError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content=error_body("rate_limit_exceeded", str(exc)),
         )
 
     @app.exception_handler(AppError)
