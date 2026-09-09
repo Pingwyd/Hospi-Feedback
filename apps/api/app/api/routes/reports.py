@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import require_access_session
 from app.core.settings import Settings, get_settings
+from app.services.admin_ws import broadcast_admin_event
 from app.services.reporter_reports import (
     CreateReportInput,
     create_report,
@@ -69,7 +70,7 @@ class AttachmentResponse(BaseModel):
     response_model=CreateReportResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def submit_report(
+async def submit_report(
     body: CreateReportRequest,
     _session: Annotated[dict[str, Any], Depends(require_access_session)],
     settings: Settings = Depends(get_settings),
@@ -86,6 +87,15 @@ def submit_report(
             category_ids=tuple(body.category_ids),
         ),
         settings=settings,
+    )
+    await broadcast_admin_event(
+        "new_report",
+        {
+            "report_id": result.report_id,
+            "status": result.status,
+            "report_type": body.report_type,
+            "created_at": result.created_at,
+        },
     )
     return CreateReportResponse(
         ticket_code=result.ticket_code,
@@ -111,7 +121,7 @@ def fetch_ticket_status(
     response_model=MessageResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def send_reporter_message(
+async def send_reporter_message(
     ticket_code: str,
     body: ReporterMessageRequest,
     _session: Annotated[dict[str, Any], Depends(require_access_session)],
@@ -122,7 +132,21 @@ def send_reporter_message(
         body.content,
         settings=settings,
     )
-    return MessageResponse(**payload)
+    await broadcast_admin_event(
+        "new_message",
+        {
+            "report_id": payload["report_id"],
+            "message_id": payload["id"],
+            "sender_type": payload["sender_type"],
+            "created_at": payload["created_at"],
+        },
+    )
+    return MessageResponse(
+        id=payload["id"],
+        sender_type=payload["sender_type"],
+        content=payload["content"],
+        created_at=payload["created_at"],
+    )
 
 
 # TODO(phase-3-followup): rate limit POST /api/reports/ticket/{code}/attachments

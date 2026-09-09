@@ -220,3 +220,196 @@ def count_attachments_for_report(
     url = f"{supabase_url.rstrip('/')}/rest/v1/attachments?{query}"
     rows = _request_json("GET", url, headers=_service_headers(service_role_key))
     return len(rows)
+
+
+_ADMIN_REPORT_COLUMNS = (
+    "id,ticket_code_hash,source,report_type,reported_member_name,"
+    "reported_member_admin_id,description,incident_date,incident_location,"
+    "severity,status,assigned_admin_id,publish_shoutout,is_public,"
+    "possible_duplicate_of,created_at,updated_at"
+)
+
+
+def fetch_report_by_id(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+) -> dict[str, Any] | None:
+    query = urllib.parse.urlencode(
+        {
+            "id": f"eq.{report_id}",
+            "select": _ADMIN_REPORT_COLUMNS,
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/reports?{query}"
+    rows = _request_json("GET", url, headers=_service_headers(service_role_key))
+    return rows[0] if rows else None
+
+
+def list_reports(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    status: str | None = None,
+    keyword: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    params: dict[str, str] = {
+        "select": _ADMIN_REPORT_COLUMNS,
+        "order": "created_at.desc",
+        "limit": str(limit),
+        "offset": str(offset),
+    }
+    if status:
+        params["status"] = f"eq.{status}"
+    if keyword:
+        params["or"] = (
+            f"(description.ilike.*{keyword}*,reported_member_name.ilike.*{keyword}*)"
+        )
+    if created_from and created_to:
+        params["and"] = f"(created_at.gte.{created_from},created_at.lte.{created_to})"
+    elif created_from:
+        params["created_at"] = f"gte.{created_from}"
+    elif created_to:
+        params["created_at"] = f"lte.{created_to}"
+    query = urllib.parse.urlencode(params)
+    url = f"{supabase_url.rstrip('/')}/rest/v1/reports?{query}"
+    return _request_json("GET", url, headers=_service_headers(service_role_key))
+
+
+def fetch_category_names_for_report(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+) -> list[str]:
+    query = urllib.parse.urlencode(
+        {
+            "report_id": f"eq.{report_id}",
+            "select": "categories(name)",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/report_categories?{query}"
+    rows = _request_json("GET", url, headers=_service_headers(service_role_key))
+    names: list[str] = []
+    for row in rows:
+        category = row.get("categories")
+        if isinstance(category, dict):
+            name = category.get("name")
+            if isinstance(name, str) and name.strip():
+                names.append(name.strip())
+    return names
+
+
+def patch_report_fields(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    query = urllib.parse.urlencode({"id": f"eq.{report_id}"})
+    url = f"{supabase_url.rstrip('/')}/rest/v1/reports?{query}"
+    rows = _request_json(
+        "PATCH",
+        url,
+        headers=_service_headers(service_role_key, prefer="return=representation"),
+        body=fields,
+    )
+    if not rows:
+        raise ReportsStoreError("Patch on reports returned no row.")
+    return rows[0]
+
+
+def insert_admin_message(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+    sender_admin_id: str,
+    content: str,
+) -> dict[str, Any]:
+    url = f"{supabase_url.rstrip('/')}/rest/v1/messages"
+    rows = _request_json(
+        "POST",
+        url,
+        headers=_service_headers(service_role_key, prefer="return=representation"),
+        body={
+            "report_id": report_id,
+            "sender_type": "admin",
+            "sender_admin_id": sender_admin_id,
+            "content": content,
+        },
+    )
+    if not rows:
+        raise ReportsStoreError("Insert into messages returned no row.")
+    return rows[0]
+
+
+def insert_internal_note(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+    admin_id: str,
+    content: str,
+) -> dict[str, Any]:
+    url = f"{supabase_url.rstrip('/')}/rest/v1/internal_notes"
+    rows = _request_json(
+        "POST",
+        url,
+        headers=_service_headers(service_role_key, prefer="return=representation"),
+        body={
+            "report_id": report_id,
+            "admin_id": admin_id,
+            "content": content,
+        },
+    )
+    if not rows:
+        raise ReportsStoreError("Insert into internal_notes returned no row.")
+    return rows[0]
+
+
+def fetch_internal_notes_for_report(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+) -> list[dict[str, Any]]:
+    query = urllib.parse.urlencode(
+        {
+            "report_id": f"eq.{report_id}",
+            "select": "id,admin_id,content,created_at",
+            "order": "created_at.asc",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/internal_notes?{query}"
+    return _request_json("GET", url, headers=_service_headers(service_role_key))
+
+
+def insert_escalation(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+    escalation_contact_id: str,
+    escalated_by_admin_id: str,
+) -> dict[str, Any]:
+    url = f"{supabase_url.rstrip('/')}/rest/v1/escalations"
+    rows = _request_json(
+        "POST",
+        url,
+        headers=_service_headers(service_role_key, prefer="return=representation"),
+        body={
+            "report_id": report_id,
+            "escalation_contact_id": escalation_contact_id,
+            "escalated_by_admin_id": escalated_by_admin_id,
+        },
+    )
+    if not rows:
+        raise ReportsStoreError("Insert into escalations returned no row.")
+    return rows[0]

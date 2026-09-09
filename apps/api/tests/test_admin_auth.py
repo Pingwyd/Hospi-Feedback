@@ -196,6 +196,28 @@ def test_admin_login_orchestration_success(
     verify_mock.assert_called_once()
 
 
+@patch("app.core.admin_login.sign_in_with_password")
+def test_admin_login_skips_2fa_when_disabled(
+    sign_in_mock: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    api_env: None,
+) -> None:
+    from app.core.admin_login import admin_login
+
+    monkeypatch.setenv("ADMIN_2FA_REQUIRED", "false")
+    get_settings.cache_clear()
+    sign_in_mock.return_value = _password_session()
+    settings = get_settings()
+    result = admin_login(
+        email=ADMIN_EMAIL,
+        password=ADMIN_PASSWORD,
+        totp_code=None,
+        settings=settings,
+    )
+    assert result.access_token == "aal1-access-token"
+    sign_in_mock.assert_called_once()
+
+
 @patch("app.core.admin_auth.fetch_admin_permissions")
 @patch("app.core.admin_auth.fetch_active_admin")
 def test_admin_ping_accepts_valid_session(
@@ -267,4 +289,4 @@ def test_verify_supabase_token_rejects_non_authenticated_role(api_env: None) -> 
         algorithm=SUPABASE_JWT_ALG,
     )
     with pytest.raises(AdminSessionError, match="Admin session invalid"):
-        verify_supabase_access_token(token, secret=FIXTURE_SUPABASE_JWT_SECRET)
+        verify_supabase_access_token(token, settings=get_settings())

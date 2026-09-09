@@ -56,6 +56,17 @@ def admin_login(
             "Invalid email or password.",
         ) from exc
 
+    if not settings.admin_2fa_enforced:
+        expires_at = datetime.now(tz=UTC) + timedelta(
+            seconds=password_session.expires_in
+        )
+        return AdminLoginResult(
+            access_token=password_session.access_token,
+            refresh_token=password_session.refresh_token,
+            expires_at=expires_at,
+            user_id=password_session.user_id,
+        )
+
     factors = list_user_mfa_factors(
         supabase_url=settings.supabase_url,
         service_role_key=settings.supabase_service_role_key,

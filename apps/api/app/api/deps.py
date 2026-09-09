@@ -14,6 +14,7 @@ from app.core.admin_auth import (
 )
 from app.core.settings import Settings, get_settings
 from app.exceptions.access import AccessDeniedError
+from app.exceptions.admin_reports import HohRoleRequiredError
 from app.exceptions.auth import AdminSessionError, PermissionDeniedError
 from app.services.telegram_admin import resolve_admin_id_from_telegram_chat_id
 
@@ -50,7 +51,7 @@ def require_admin(
     token = _bearer_token(authorization)
     if not token:
         raise AdminSessionError("Admin session required.")
-    claims = verify_supabase_access_token(token, secret=settings.supabase_jwt_secret)
+    claims = verify_supabase_access_token(token, settings=settings)
     return load_admin_context(str(claims["sub"]), settings=settings)
 
 
@@ -67,6 +68,31 @@ def require_permission(permission: str) -> Callable[..., AdminContext]:
         return admin
 
     return _require_permission
+
+
+def require_hoh(
+    admin: Annotated[AdminContext, Depends(require_admin)],
+) -> AdminContext:
+    """Restrict an endpoint to the Head of Hospi role."""
+    if admin.role != "hoh":
+        raise HohRoleRequiredError("Only the Head of Hospi may perform this action.")
+    return admin
+
+
+def require_roles(*allowed_roles: str) -> Callable[..., AdminContext]:
+    """Restrict an endpoint to admins whose role is in allowed_roles."""
+    allowed = frozenset(allowed_roles)
+
+    def _require_roles(
+        admin: Annotated[AdminContext, Depends(require_admin)],
+    ) -> AdminContext:
+        if admin.role not in allowed:
+            raise PermissionDeniedError(
+                f"Role must be one of {sorted(allowed)} for this action.",
+            )
+        return admin
+
+    return _require_roles
 
 
 def require_bot_service_secret(

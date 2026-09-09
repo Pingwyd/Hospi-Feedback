@@ -49,6 +49,7 @@ class CreateReportInput:
 
 @dataclass(frozen=True)
 class CreateReportResult:
+    report_id: str
     ticket_code: str
     status: str
     created_at: str
@@ -90,6 +91,7 @@ def create_report(
             category_ids=list(input_data.category_ids),
         )
     return CreateReportResult(
+        report_id=report_id,
         ticket_code=ticket_code,
         status=str(inserted.get("status") or "new"),
         created_at=str(inserted["created_at"]),
@@ -151,6 +153,7 @@ def post_reporter_message(
         content=content,
     )
     return {
+        "report_id": str(report["id"]),
         "id": str(message["id"]),
         "sender_type": message["sender_type"],
         "content": message["content"],
