@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.core.settings import Settings
 from app.integrations.system_alerts_store import (
+    SystemAlertsStoreError,
     insert_system_alert,
     list_active_system_alerts,
 )
@@ -32,7 +33,11 @@ def create_system_alert(
 
 
 def list_dashboard_alerts(*, settings: Settings) -> list[dict[str, object]]:
-    return list_active_system_alerts(**_store_kwargs(settings))
+    """Return active alerts, or an empty list if the table is not migrated yet."""
+    try:
+        return list_active_system_alerts(**_store_kwargs(settings))
+    except SystemAlertsStoreError:
+        return []
 
 
 def record_purge_pdf_delivery_failure(*, settings: Settings) -> dict[str, object]:

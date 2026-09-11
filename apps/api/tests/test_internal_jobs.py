@@ -403,3 +403,41 @@ def test_escalation_export_purge_missing_secret_returns_401(
         response = client.post("/internal/jobs/purge-escalation-exports")
         assert response.status_code == 401
         delete_mock.assert_not_called()
+
+
+def test_dashboard_stats_tolerates_missing_system_alerts_table(
+    client: TestClient,
+) -> None:
+    from app.integrations.system_alerts_store import SystemAlertsStoreError
+    from tests.test_admin_auth import ADMIN_ID, _issue_admin_token
+
+    with (
+        patch("app.core.admin_auth.fetch_active_admin") as fetch_admin_mock,
+        patch("app.core.admin_auth.fetch_admin_permissions") as fetch_permissions_mock,
+        patch("app.services.admin_dashboard.list_reports", return_value=[]),
+        patch(
+            "app.services.system_alerts.list_active_system_alerts",
+            side_effect=SystemAlertsStoreError(
+                "PostgREST GET failed with HTTP 404.",
+                context={"status": 404},
+            ),
+        ),
+    ):
+        from app.integrations.supabase_rest import AdminRecord
+
+        fetch_admin_mock.return_value = AdminRecord(
+            id=ADMIN_ID,
+            full_name="Local Bootstrap HOH",
+            role="hoh",
+            subunit=None,
+            aliases=("HOH",),
+            active=True,
+        )
+        fetch_permissions_mock.return_value = frozenset({"view"})
+        response = client.get(
+            "/api/admin/dashboard/stats",
+            headers={"Authorization": f"Bearer {_issue_admin_token()}"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["system_alerts"] == []
