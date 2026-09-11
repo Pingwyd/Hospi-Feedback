@@ -18,4 +18,5 @@ def api_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUPABASE_ANON_KEY", FIXTURE_SUPABASE_ANON_KEY)
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", FIXTURE_SUPABASE_SERVICE_ROLE_KEY)
     monkeypatch.setenv("SUPABASE_JWT_SECRET", FIXTURE_SUPABASE_JWT_SECRET)
+    monkeypatch.setenv("ADMIN_2FA_REQUIRED", "true")
     get_settings.cache_clear()

@@ -66,6 +66,7 @@ def test_submit_then_fetch_by_ticket(
     from app.services.reporter_reports import CreateReportResult
 
     create_mock.return_value = CreateReportResult(
+        report_id=REPORT_ID,
         ticket_code=TICKET_CODE,
         status="new",
         created_at=CREATED_AT,

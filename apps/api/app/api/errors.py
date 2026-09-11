@@ -4,6 +4,12 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from app.exceptions.access import AccessCodeRejectedError, AccessDeniedError
+from app.exceptions.admin_reports import (
+    AdminReportValidationError,
+    HohRoleRequiredError,
+    RecusalBlockedError,
+    RecusalConfirmationRequiredError,
+)
 from app.exceptions.auth import (
     AdminLoginRejectedError,
     AdminSessionError,
@@ -118,6 +124,42 @@ def register_exception_handlers(app) -> None:
         return JSONResponse(
             status_code=429,
             content=error_body("rate_limit_exceeded", str(exc)),
+        )
+
+    @app.exception_handler(RecusalBlockedError)
+    async def _recusal_blocked(
+        _request: Request, exc: RecusalBlockedError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=error_body("recusal_blocked", str(exc)),
+        )
+
+    @app.exception_handler(RecusalConfirmationRequiredError)
+    async def _recusal_confirmation_required(
+        _request: Request, exc: RecusalConfirmationRequiredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content=error_body("recusal_confirmation_required", str(exc)),
+        )
+
+    @app.exception_handler(HohRoleRequiredError)
+    async def _hoh_role_required(
+        _request: Request, exc: HohRoleRequiredError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content=error_body("forbidden", str(exc)),
+        )
+
+    @app.exception_handler(AdminReportValidationError)
+    async def _admin_report_validation(
+        _request: Request, exc: AdminReportValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=error_body("validation_error", str(exc)),
         )
 
     @app.exception_handler(AppError)

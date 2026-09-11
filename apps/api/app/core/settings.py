@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     access_code_jwt_secret: str
     access_session_ttl_seconds: int = 86400
     access_cookie_name: str = "hospi_access_session"
+    admin_2fa_required: bool | None = None
 
     supabase_url: str
     supabase_anon_key: str
@@ -28,10 +30,27 @@ class Settings(BaseSettings):
     rate_limit_max_requests: int = 20
     telegram_link_code_ttl_seconds: int = 600
 
+    @field_validator("supabase_jwt_secret")
+    @classmethod
+    def supabase_jwt_secret_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                "SUPABASE_JWT_SECRET is required. "
+                "Copy JWT_SECRET from `supabase status -o env`.",
+            )
+        return value
+
     @property
     def cookie_secure(self) -> bool:
         env = self.environment.strip().lower()
         return env in {"staging", "stage", "production", "prod"}
+
+    @property
+    def admin_2fa_enforced(self) -> bool:
+        if self.admin_2fa_required is not None:
+            return self.admin_2fa_required
+        env = self.environment.strip().lower()
+        return env not in {"local", "development", "dev", "test"}
 
 
 @lru_cache
