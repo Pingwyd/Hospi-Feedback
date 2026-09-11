@@ -16,10 +16,32 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(_API_ROOT))
 sys.path.insert(0, str(_SCRIPTS_ROOT))
 
-from app.core.environment import ensure_local_seed_allowed  # noqa: E402
-from app.exceptions.environment import EnvironmentGuardError  # noqa: E402
-from lib.bootstrap_admin import seed_bootstrap_hoh  # noqa: E402
-from lib.categories import seed_default_categories  # noqa: E402
+from app.core.environment import ensure_local_seed_allowed
+from app.exceptions.environment import EnvironmentGuardError
+from lib.bootstrap_admin import seed_bootstrap_hoh
+from lib.categories import seed_default_categories
+
+
+def _parse_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.is_file():
+        return values
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        if key:
+            values[key] = value.strip().strip("'").strip('"')
+    return values
+
+
+def load_dotenv_files() -> None:
+    """Fill missing os.environ keys from repo and API .env files. Process env wins."""
+    for path in (_REPO_ROOT / ".env", _API_ROOT / ".env"):
+        for key, value in _parse_env_file(path).items():
+            os.environ.setdefault(key, value)
 
 
 def _required_env(name: str, environ: Mapping[str, str]) -> str:
@@ -54,4 +76,5 @@ def run_seed(environ: Mapping[str, str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    load_dotenv_files()
     raise SystemExit(run_seed())
