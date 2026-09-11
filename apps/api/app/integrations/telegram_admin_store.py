@@ -163,7 +163,7 @@ def fetch_linked_admin_rows(
         {
             "active": "eq.true",
             "telegram_chat_id_encrypted": "not.is.null",
-            "select": "id,telegram_chat_id_encrypted",
+            "select": "id,role,telegram_chat_id_encrypted",
         }
     )
     url = f"{supabase_url.rstrip('/')}/rest/v1/admins?{query}"
@@ -176,6 +176,7 @@ def fetch_linked_admin_rows(
             linked.append(
                 {
                     "id": str(admin_id),
+                    "role": str(row.get("role") or ""),
                     "telegram_chat_id_encrypted": str(encrypted),
                 }
             )

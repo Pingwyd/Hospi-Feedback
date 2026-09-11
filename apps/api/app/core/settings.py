@@ -24,11 +24,18 @@ class Settings(BaseSettings):
     report_attachment_max_bytes: int = 5 * 1024 * 1024
 
     bot_service_secret: str = ""
+    telegram_bot_token: str = ""
     telegram_chat_id_encryption_key: str = ""
     telegram_identifier_pepper: str = ""
     rate_limit_window_seconds: int = 3600
     rate_limit_max_requests: int = 20
     telegram_link_code_ttl_seconds: int = 600
+
+    x_internal_job_secret: str = ""
+    report_retention_days: int = 30
+    duplicate_scan_window_days: int = 7
+    export_retention_days: int = 365
+    escalation_exports_bucket: str = "escalation-exports"
 
     @field_validator("supabase_jwt_secret")
     @classmethod

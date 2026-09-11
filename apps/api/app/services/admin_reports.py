@@ -23,6 +23,7 @@ from app.integrations.reports_store import (
 )
 from app.services.admin_ws import broadcast_admin_event
 from app.services.audit_log import AuditAction, write_audit_log
+from app.services.escalation_export import generate_escalation_export
 from app.services.recusal_enforcement import (
     RECUSAL_SENSITIVE_STATUSES,
     audit_action_for_status,
@@ -298,13 +299,20 @@ def escalate_report(
     settings: Settings,
 ) -> dict[str, Any]:
     _require_permission(admin, "respond")
-    _load_report_or_raise(report_id, settings=settings)
+    report = _load_report_or_raise(report_id, settings=settings)
     escalation = insert_escalation(
         **_store_kwargs(settings),
         report_id=report_id,
         escalation_contact_id=escalation_contact_id,
         escalated_by_admin_id=admin.id,
     )
+    export_meta = generate_escalation_export(
+        escalation_id=str(escalation["id"]),
+        report=report,
+        escalation_contact_id=escalation_contact_id,
+        settings=settings,
+    )
+    escalation = {**escalation, **export_meta}
     updated = patch_report_fields(
         **_store_kwargs(settings),
         report_id=report_id,
@@ -318,6 +326,7 @@ def escalate_report(
         detail={
             "escalation_id": escalation["id"],
             "escalation_contact_id": escalation_contact_id,
+            "exported_file_path": export_meta["exported_file_path"],
         },
     )
     return {"report": updated, "escalation": escalation}

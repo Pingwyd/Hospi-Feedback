@@ -1,5 +1,12 @@
 import { adminFetch } from "./admin-fetch";
 
+export type SystemAlert = {
+  id: string;
+  alert_type: string;
+  message: string;
+  created_at: string;
+};
+
 export type DashboardStats = {
   status_counts: Record<string, number>;
   report_type_counts: Record<string, number>;
@@ -9,6 +16,7 @@ export type DashboardStats = {
     status: string;
     created_at: string;
   } | null;
+  system_alerts: SystemAlert[];
 };
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
