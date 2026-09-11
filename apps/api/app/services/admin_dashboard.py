@@ -10,6 +10,7 @@ from app.core.admin_auth import AdminContext
 from app.core.settings import Settings
 from app.exceptions.auth import PermissionDeniedError
 from app.integrations.reports_store import list_reports
+from app.services.system_alerts import list_dashboard_alerts
 
 RESOLVED_STATUSES = frozenset({"resolved", "closed", "marked_false"})
 
@@ -66,4 +67,5 @@ def get_dashboard_stats(*, admin: AdminContext, settings: Settings) -> dict[str,
             for day, count in sorted(submissions_by_day.items())
         ],
         "oldest_unresolved": oldest_unresolved,
+        "system_alerts": list_dashboard_alerts(settings=settings),
     }

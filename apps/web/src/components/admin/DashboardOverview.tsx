@@ -103,6 +103,22 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {stats.system_alerts?.map((alert) => (
+        <div
+          key={alert.id}
+          role="alert"
+          className="rounded-2xl border border-brass/40 bg-brass/15 p-4"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 shrink-0 text-brass" size={18} />
+            <div>
+              <p className="font-semibold text-ink">System alert</p>
+              <p className="mt-1 text-sm text-ink/80">{alert.message}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+
       {stats.oldest_unresolved ? (
         <div className="rounded-2xl border border-brass/30 bg-brass/10 p-4">
           <div className="flex items-start gap-3">

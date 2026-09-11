@@ -1,0 +1,11 @@
+"""Health endpoint for keep-warm and uptime checks."""
+
+from app.main import create_app
+from fastapi.testclient import TestClient
+
+
+def test_health_returns_ok(api_env: None) -> None:
+    client = TestClient(create_app())
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

@@ -25,6 +25,18 @@ def test_run_seed_exits_1_on_staging() -> None:
     assert seed.run_seed({"ENVIRONMENT": "staging"}) == 1
 
 
+def test_parse_env_file_skips_comments_and_blanks(tmp_path: Path) -> None:
+    seed = _load_seed_module()
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        '# comment\n\nENVIRONMENT=local\nQUOTED="abc"\n',
+        encoding="utf-8",
+    )
+    parsed = seed._parse_env_file(env_path)
+    assert parsed["ENVIRONMENT"] == "local"
+    assert parsed["QUOTED"] == "abc"
+
+
 def test_run_seed_stops_before_network_when_blocked() -> None:
     seed = _load_seed_module()
     assert seed.run_seed({"ENVIRONMENT": "production"}) == 1

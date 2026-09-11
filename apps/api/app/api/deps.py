@@ -95,6 +95,25 @@ def require_roles(*allowed_roles: str) -> Callable[..., AdminContext]:
     return _require_roles
 
 
+def require_internal_job_secret(
+    settings: Annotated[Settings, Depends(get_settings)],
+    x_internal_job_secret: Annotated[str | None, Header()] = None,
+) -> None:
+    """Reject internal job endpoints when the shared secret is missing or wrong."""
+    expected = settings.x_internal_job_secret.strip()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Internal job secret is not configured.",
+        )
+    provided = (x_internal_job_secret or "").strip()
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid internal job secret.",
+        )
+
+
 def require_bot_service_secret(
     settings: Annotated[Settings, Depends(get_settings)],
     x_bot_service_secret: Annotated[str | None, Header()] = None,

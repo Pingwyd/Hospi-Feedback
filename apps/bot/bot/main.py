@@ -1,8 +1,9 @@
-"""Telegram bot entrypoint (polling in local/staging)."""
+"""Telegram bot entrypoint: polling (local/staging) or webhook (production)."""
 
 from __future__ import annotations
 
 import logging
+import os
 
 from telegram.ext import (
     Application,
@@ -53,6 +54,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+_ALLOWED_UPDATES = ["message", "callback_query"]
 
 
 def build_application(settings: BotSettings) -> Application:
@@ -143,13 +146,50 @@ def build_application(settings: BotSettings) -> Application:
     return application
 
 
+def _webhook_listen_port() -> int:
+    raw = os.environ.get("PORT", "8080").strip()
+    try:
+        return int(raw)
+    except ValueError:
+        return 8080
+
+
+def _run_polling(application: Application, settings: BotSettings) -> None:
+    logger.info("Starting bot in polling mode against %s", settings.api_base_url)
+    application.run_polling(allowed_updates=_ALLOWED_UPDATES)
+
+
+def _run_webhook(application: Application, settings: BotSettings) -> None:
+    base_url = settings.webhook_base_url.strip().rstrip("/")
+    if not base_url:
+        raise SystemExit(
+            "WEBHOOK_BASE_URL is required when BOT_MODE=webhook. "
+            "Do not deploy webhook mode until cutover is approved."
+        )
+    path = settings.webhook_path.strip().strip("/") or "telegram-webhook"
+    port = _webhook_listen_port()
+    webhook_url = f"{base_url}/{path}"
+    logger.info("Starting bot in webhook mode at %s (port %s)", webhook_url, port)
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=path,
+        webhook_url=webhook_url,
+        allowed_updates=_ALLOWED_UPDATES,
+    )
+
+
 def main() -> None:
     settings = get_settings()
-    if settings.bot_mode.strip().lower() != "polling":
-        raise SystemExit("Only polling mode is supported in this phase.")
+    mode = settings.bot_mode.strip().lower()
     application = build_application(settings)
-    logger.info("Starting bot in polling mode against %s", settings.api_base_url)
-    application.run_polling(allowed_updates=["message", "callback_query"])
+    if mode == "polling":
+        _run_polling(application, settings)
+        return
+    if mode == "webhook":
+        _run_webhook(application, settings)
+        return
+    raise SystemExit(f"Unsupported BOT_MODE: {settings.bot_mode!r}")
 
 
 if __name__ == "__main__":
