@@ -1,0 +1,102 @@
+# Render Blueprint (Step 3 prep). Do NOT deploy until cutover is explicitly approved.
+# Set env vars in the Render dashboard; never commit secrets.
+
+services:
+  - type: web
+    name: hospi-api
+    runtime: python
+    rootDir: apps/api
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: X_INTERNAL_JOB_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID_ENCRYPTION_KEY
+        sync: false
+
+  - type: web
+    name: hospi-bot
+    runtime: python
+    rootDir: apps/bot
+    buildCommand: pip install -e .
+    startCommand: python -m bot.main
+    envVars:
+      - key: BOT_MODE
+        value: webhook
+      - key: WEBHOOK_BASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: API_BASE_URL
+        sync: false
+      - key: BOT_SERVICE_SECRET
+        sync: false
+      - key: TELEGRAM_IDENTIFIER_PEPPER
+        sync: false
+
+  - type: cron
+    name: hospi-purge-cycle
+    runtime: python
+    rootDir: apps/api
+    schedule: "0 3 * * *"
+    buildCommand: pip install -e .
+    startCommand: >-
+      python -c "import os,urllib.request; req=urllib.request.Request(os.environ['API_PUBLIC_URL'].rstrip('/')+'/internal/jobs/purge-cycle', method='POST', headers={'X-Internal-Job-Secret': os.environ['X_INTERNAL_JOB_SECRET']}); urllib.request.urlopen(req, timeout=120)"
+    envVars:
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: X_INTERNAL_JOB_SECRET
+        sync: false
+
+  - type: cron
+    name: hospi-purge-escalation-exports
+    runtime: python
+    rootDir: apps/api
+    schedule: "0 4 * * *"
+    buildCommand: pip install -e .
+    startCommand: >-
+      python -c "import os,urllib.request; req=urllib.request.Request(os.environ['API_PUBLIC_URL'].rstrip('/')+'/internal/jobs/purge-escalation-exports', method='POST', headers={'X-Internal-Job-Secret': os.environ['X_INTERNAL_JOB_SECRET']}); urllib.request.urlopen(req, timeout=120)"
+    envVars:
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: X_INTERNAL_JOB_SECRET
+        sync: false
+
+  - type: cron
+    name: hospi-duplicate-scan
+    runtime: python
+    rootDir: apps/api
+    schedule: "*/30 * * * *"
+    buildCommand: pip install -e .
+    startCommand: >-
+      python -c "import os,urllib.request; req=urllib.request.Request(os.environ['API_PUBLIC_URL'].rstrip('/')+'/internal/jobs/duplicate-scan', method='POST', headers={'X-Internal-Job-Secret': os.environ['X_INTERNAL_JOB_SECRET']}); urllib.request.urlopen(req, timeout=120)"
+    envVars:
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: X_INTERNAL_JOB_SECRET
+        sync: false
+
+  - type: cron
+    name: hospi-keep-warm-api
+    runtime: python
+    rootDir: apps/api
+    schedule: "*/12 * * * *"
+    buildCommand: pip install -e .
+    startCommand: >-
+      python -c "import os,urllib.request; urllib.request.urlopen(os.environ['API_PUBLIC_URL'].rstrip('/')+'/health', timeout=30)"
+    envVars:
+      - key: API_PUBLIC_URL
+        sync: false

@@ -23,6 +23,8 @@ class BotSettings(BaseSettings):
     telegram_identifier_pepper: str
     bot_service_secret: str = ""
     bot_mode: str = "polling"
+    webhook_base_url: str = ""
+    webhook_path: str = "telegram-webhook"
 
 
 @lru_cache
