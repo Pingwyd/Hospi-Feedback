@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
+import { AdminConfirmModal } from "@/components/admin/AdminConfirmModal";
 import { RecusalConfirmModal } from "@/components/admin/RecusalConfirmModal";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import {
@@ -78,6 +79,29 @@ function statusControlButtonClass(isCurrent: boolean): string {
   return "rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-white disabled:cursor-not-allowed disabled:opacity-60";
 }
 
+function mergeReportPatch(
+  detail: ReportDetail,
+  patch: Record<string, unknown>,
+): ReportDetail {
+  return {
+    ...detail,
+    report: {
+      ...detail.report,
+      ...patch,
+    },
+  };
+}
+
+function reportPatchFromEscalateResult(
+  result: Record<string, unknown>,
+): Record<string, unknown> {
+  const nested = result.report;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return result;
+}
+
 function statusButtonAriaLabel(
   status: ReportStatus,
   options: { isCurrent: boolean; isActionable: boolean },
@@ -114,6 +138,8 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     null,
   );
   const deleteReasonRef = useRef<HTMLTextAreaElement>(null);
+  const closeConfirmTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [recusalOpen, setRecusalOpen] = useState(false);
   const [recusalMessage, setRecusalMessage] = useState("");
   const [pendingRecusal, setPendingRecusal] = useState<PendingRecusalAction | null>(
@@ -125,8 +151,11 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     await invalidateAdminReportLists(queryClient);
   }, [queryClient]);
 
-  const loadDetail = useCallback(async () => {
-    setLoading(true);
+  const loadDetail = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [reportDetail, teamMembers, escalationContacts] = await Promise.all([
@@ -142,9 +171,24 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not load report.");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [reportId]);
+
+  const applyReportPatch = useCallback((patch: Record<string, unknown>) => {
+    setDetail((current) => (current ? mergeReportPatch(current, patch) : current));
+  }, []);
+
+  const refreshAfterTriageAction = useCallback(
+    async (patch: Record<string, unknown>) => {
+      applyReportPatch(patch);
+      await refreshInboxLists();
+      await loadDetail({ silent: true });
+    },
+    [applyReportPatch, loadDetail, refreshInboxLists],
+  );
 
   useEffect(() => {
     void loadDetail();
@@ -207,12 +251,42 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     }
   }
 
-  async function handleStatusChange(status: ReportStatus) {
+  async function handleStatusChange(
+    status: ReportStatus,
+    trigger?: HTMLButtonElement | null,
+  ) {
+    if (status === "closed") {
+      closeConfirmTriggerRef.current = trigger ?? null;
+      setCloseConfirmOpen(true);
+      return;
+    }
     await runRecusalSensitiveAction({ type: "status", status });
+  }
+
+  function handleCloseConfirmCancel() {
+    setCloseConfirmOpen(false);
+  }
+
+  function handleCloseConfirm() {
+    setCloseConfirmOpen(false);
+    void runRecusalSensitiveAction({ type: "status", status: "closed" });
   }
 
   async function handleMarkFalse() {
     await runRecusalSensitiveAction({ type: "mark_false" });
+  }
+
+  async function completeAssignReport(assignedAdminId: string) {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const updated = await assignReport(reportId, assignedAdminId);
+      await refreshAfterTriageAction(updated);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Assign failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleAssign() {
@@ -220,17 +294,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
       setActionError("Select an admin to assign.");
       return;
     }
-    setBusy(true);
-    setActionError(null);
-    try {
-      await assignReport(reportId, assignAdminId);
-      await refreshInboxLists();
-      await loadDetail();
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Assign failed.");
-    } finally {
-      setBusy(false);
-    }
+    await completeAssignReport(assignAdminId);
   }
 
   async function handleLinkMember() {
@@ -293,9 +357,8 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setBusy(true);
     setActionError(null);
     try {
-      await escalateReport(reportId, escalationContactId);
-      await refreshInboxLists();
-      await loadDetail();
+      const result = await escalateReport(reportId, escalationContactId);
+      await refreshAfterTriageAction(reportPatchFromEscalateResult(result));
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Escalation failed.");
     } finally {
@@ -423,7 +486,9 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                       isActionable,
                     })}
                     disabled={busy || isCurrent || !isActionable}
-                    onClick={() => void handleStatusChange(status)}
+                    onClick={(event) =>
+                      void handleStatusChange(status, event.currentTarget)
+                    }
                     className={`inline-flex items-center gap-1.5 ${statusControlButtonClass(isCurrent)}`}
                   >
                     {isCurrent ? <Check size={14} aria-hidden="true" /> : null}
@@ -479,23 +544,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => {
-                      void (async () => {
-                        setBusy(true);
-                        setActionError(null);
-                        try {
-                          await assignReport(reportId, profile.id);
-                          await refreshInboxLists();
-                          await loadDetail();
-                        } catch (err) {
-                          setActionError(
-                            err instanceof ApiError ? err.message : "Assign failed.",
-                          );
-                        } finally {
-                          setBusy(false);
-                        }
-                      })();
-                    }}
+                    onClick={() => void completeAssignReport(profile.id)}
                     className="ml-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-white/70 disabled:opacity-60"
                   >
                     Assign to me
@@ -759,6 +808,17 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
           </section>
         ) : null}
       </div>
+
+      <AdminConfirmModal
+        open={closeConfirmOpen}
+        title="Close report?"
+        message="Closing this report blocks the reporter from sending further messages. Confirm only if you intend to end this thread."
+        confirmLabel="Close report"
+        confirming={busy}
+        returnFocusRef={closeConfirmTriggerRef}
+        onCancel={handleCloseConfirmCancel}
+        onConfirm={handleCloseConfirm}
+      />
 
       <RecusalConfirmModal
         open={recusalOpen}
