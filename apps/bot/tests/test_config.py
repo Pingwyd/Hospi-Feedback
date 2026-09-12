@@ -11,3 +11,11 @@ def test_env_file_is_bot_app_dotenv() -> None:
     assert _BOT_APP_DIR.name == "bot"
     assert BotSettings.model_config["env_file"] == _ENV_FILE
     assert Path(BotSettings.model_config["env_file"]).name == ".env"
+
+
+def test_stats_render_mode_defaults_to_text() -> None:
+    settings = BotSettings(
+        telegram_bot_token="token",
+        telegram_identifier_pepper="pepper",
+    )
+    assert settings.stats_render_mode == "text"

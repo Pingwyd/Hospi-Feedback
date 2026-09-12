@@ -90,3 +90,30 @@ async def test_upload_attachment_link_to_thread_query() -> None:
     assert result["message_id"] == "m1"
     post_url = mock_client.post.await_args.args[0]
     assert post_url.endswith("/attachments?link_to_thread=true")
+
+
+@pytest.mark.asyncio
+async def test_fetch_telegram_dashboard_stats_uses_bot_secret_and_chat_id() -> None:
+    response = httpx.Response(
+        200,
+        json={"data": {"status_counts": {"new": 1}}},
+        request=httpx.Request("GET", "http://api.test/x"),
+    )
+    mock_client = AsyncMock()
+    mock_client.request = AsyncMock(return_value=response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("bot.api_client.httpx.AsyncClient", return_value=mock_client):
+        client = HospiApiClient(
+            base_url="http://api.test",
+            bot_service_secret="bot-secret",
+        )
+        result = await client.fetch_telegram_dashboard_stats(
+            telegram_chat_id="123456789",
+        )
+
+    assert result["status_counts"]["new"] == 1
+    call_kwargs = mock_client.request.await_args.kwargs
+    assert call_kwargs["headers"]["X-Bot-Service-Secret"] == "bot-secret"
+    assert "telegram_chat_id=123456789" in mock_client.request.await_args.args[1]

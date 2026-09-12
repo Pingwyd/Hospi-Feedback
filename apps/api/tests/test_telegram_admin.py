@@ -212,6 +212,121 @@ def test_generate_link_code_requires_admin_session(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_telegram_stats_requires_bot_secret(client: TestClient) -> None:
+    response = client.get(
+        "/api/admin/telegram/stats",
+        params={"telegram_chat_id": FIXTURE_CHAT_ID},
+    )
+    assert response.status_code == 401
+
+
+def test_telegram_stats_unlinked_chat_id(client: TestClient) -> None:
+    with patch(
+        "app.services.telegram_admin.fetch_linked_admin_rows",
+        return_value=[],
+    ):
+        response = client.get(
+            "/api/admin/telegram/stats",
+            params={"telegram_chat_id": FIXTURE_CHAT_ID},
+            headers={"X-Bot-Service-Secret": FIXTURE_BOT_SECRET},
+        )
+    assert response.status_code == 403
+    assert "No linked admin account" in response.json()["error"]["message"]
+
+
+def test_telegram_stats_returns_dashboard_payload(client: TestClient) -> None:
+    from app.integrations.supabase_rest import AdminRecord
+
+    encrypted = encrypt_telegram_chat_id(FIXTURE_CHAT_ID)
+    dashboard_payload = {
+        "status_counts": {"new": 2},
+        "report_type_counts": {"complaint": 2},
+        "submissions_by_day": [],
+        "oldest_unresolved": None,
+        "system_alerts": [],
+    }
+    admin_record = AdminRecord(
+        id=FIXTURE_ADMIN_ID,
+        full_name="Test Admin",
+        role="hoh",
+        subunit=None,
+        aliases=(),
+        active=True,
+    )
+    with (
+        patch(
+            "app.services.telegram_admin.fetch_linked_admin_rows",
+            return_value=[
+                {
+                    "id": FIXTURE_ADMIN_ID,
+                    "role": "hoh",
+                    "telegram_chat_id_encrypted": encrypted,
+                }
+            ],
+        ),
+        patch(
+            "app.api.routes.admin_telegram.get_dashboard_stats",
+            return_value=dashboard_payload,
+        ),
+        patch(
+            "app.core.admin_auth.fetch_admin_permissions",
+            return_value=frozenset({"view"}),
+        ),
+        patch(
+            "app.core.admin_auth.fetch_active_admin",
+            return_value=admin_record,
+        ),
+    ):
+        response = client.get(
+            "/api/admin/telegram/stats",
+            params={"telegram_chat_id": FIXTURE_CHAT_ID},
+            headers={"X-Bot-Service-Secret": FIXTURE_BOT_SECRET},
+        )
+    assert response.status_code == 200
+    assert response.json()["data"] == dashboard_payload
+
+
+def test_telegram_stats_permission_denied(client: TestClient) -> None:
+    from app.integrations.supabase_rest import AdminRecord
+
+    encrypted = encrypt_telegram_chat_id(FIXTURE_CHAT_ID)
+    admin_record = AdminRecord(
+        id=FIXTURE_ADMIN_ID,
+        full_name="Test Admin",
+        role="custom",
+        subunit=None,
+        aliases=(),
+        active=True,
+    )
+    with (
+        patch(
+            "app.services.telegram_admin.fetch_linked_admin_rows",
+            return_value=[
+                {
+                    "id": FIXTURE_ADMIN_ID,
+                    "role": "custom",
+                    "telegram_chat_id_encrypted": encrypted,
+                }
+            ],
+        ),
+        patch(
+            "app.core.admin_auth.fetch_admin_permissions",
+            return_value=frozenset({"respond"}),
+        ),
+        patch(
+            "app.core.admin_auth.fetch_active_admin",
+            return_value=admin_record,
+        ),
+    ):
+        response = client.get(
+            "/api/admin/telegram/stats",
+            params={"telegram_chat_id": FIXTURE_CHAT_ID},
+            headers={"X-Bot-Service-Secret": FIXTURE_BOT_SECRET},
+        )
+    assert response.status_code == 403
+    assert "Permission 'view'" in response.json()["error"]["message"]
+
+
 def test_generate_link_code_returns_plaintext_once(client: TestClient) -> None:
     from app.api.deps import require_admin
     from app.core.admin_auth import AdminContext

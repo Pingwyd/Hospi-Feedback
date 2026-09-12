@@ -4,7 +4,7 @@ import hmac
 from collections.abc import Callable
 from typing import Annotated, Any
 
-from fastapi import Cookie, Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Query, status
 
 from app.core.access_session import verify_access_token
 from app.core.admin_auth import (
@@ -134,7 +134,7 @@ def require_bot_service_secret(
 
 
 def require_bot_admin(
-    telegram_chat_id: str,
+    telegram_chat_id: Annotated[str, Query(pattern=r"^-?\d+$")],
     settings: Annotated[Settings, Depends(get_settings)],
     _bot_secret: Annotated[None, Depends(require_bot_service_secret)],
 ) -> AdminContext:
