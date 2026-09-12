@@ -37,12 +37,17 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen bg-paper px-6 py-10">
-        <SkeletonCard />
-      </div>
-    );
+  const token = getAdminAccessToken();
+
+  if (!profile) {
+    if (loading || token) {
+      return (
+        <div className="min-h-screen bg-paper px-6 py-10">
+          <SkeletonCard />
+        </div>
+      );
+    }
+    return null;
   }
 
   return <AdminShell>{children}</AdminShell>;

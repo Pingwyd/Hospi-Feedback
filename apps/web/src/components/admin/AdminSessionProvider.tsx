@@ -16,10 +16,15 @@ import {
 } from "@/lib/auth/admin-session";
 import { fetchAdminProfile, type AdminProfile } from "@/lib/api/admin-fetch";
 
+type RefreshProfileOptions = {
+  /** Skip page-level loading when a profile is already rendered (tab refocus). */
+  background?: boolean;
+};
+
 type AdminSessionContextValue = {
   profile: AdminProfile | null;
   loading: boolean;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (options?: RefreshProfileOptions) => Promise<void>;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (...roles: string[]) => boolean;
@@ -31,14 +36,16 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (options?: RefreshProfileOptions) => {
     const token = getAdminAccessToken();
     if (!token) {
       setProfile(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!options?.background) {
+      setLoading(true);
+    }
     try {
       const nextProfile = await fetchAdminProfile();
       setProfile(nextProfile);
@@ -46,7 +53,9 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
       clearAdminSession();
       setProfile(null);
     } finally {
-      setLoading(false);
+      if (!options?.background) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -57,7 +66,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   // Re-check profile when tab regains focus (token may have been cleared elsewhere).
   useEffect(() => {
     function onFocus() {
-      void refreshProfile();
+      void refreshProfile({ background: true });
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
