@@ -9,11 +9,17 @@ from bot.api_client import ApiClientError, HospiApiClient
 from bot.constants import (
     ACCESS_CODE,
     HELP_TEXT,
+    PERSISTENT_KEYBOARD_ATTACHED_KEY,
     REPORT_DRAFT_KEY,
     REPORT_FLOW_STATE_KEY,
     STATUS_TICKET_KEY,
 )
 from bot.handlers.menu import prompt_expired_session_access_code, show_main_menu
+from bot.keyboards import remove_persistent_keyboard
+from bot.persistent_keyboard_lifecycle import (
+    attach_persistent_keyboard,
+    ensure_persistent_keyboard,
+)
 from bot.sessions import (
     clear_access_session,
     has_valid_access_session,
@@ -28,13 +34,16 @@ async def start_command(
         return ConversationHandler.END
     context.user_data.pop(STATUS_TICKET_KEY, None)
     if has_valid_access_session(context.user_data):
+        await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
         return ConversationHandler.END
     clear_access_session(context.user_data)
+    context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
     await update.message.reply_text(
         "Welcome to Hospi Feedback.\n\n"
         "Enter the unit access code to continue. "
-        "It is required once per session."
+        "It is required once per session.",
+        reply_markup=remove_persistent_keyboard(),
     )
     return ACCESS_CODE
 
@@ -65,7 +74,7 @@ async def receive_access_code(
         expires_at=expires_at,
     )
     context.user_data.pop(STATUS_TICKET_KEY, None)
-    await update.message.reply_text("Access granted.")
+    await attach_persistent_keyboard(update.message, context.user_data)
     await show_main_menu(update, context)
     return ConversationHandler.END
 
@@ -76,6 +85,7 @@ async def menu_command(
     if update.message is None:
         return ConversationHandler.END
     if has_valid_access_session(context.user_data):
+        await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
         return ConversationHandler.END
     return await prompt_expired_session_access_code(update, context)
@@ -94,5 +104,6 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
     context.user_data.pop(STATUS_TICKET_KEY, None)
     if has_valid_access_session(context.user_data):
+        await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
     return ConversationHandler.END

@@ -23,6 +23,8 @@ from bot.constants import (
     MENU_DISCARD_CONFIRM,
     MENU_GO_CALLBACK_PREFIX,
     MENU_KEEP_CALLBACK,
+    PERSISTENT_CANCEL_LABEL,
+    PERSISTENT_MENU_LABEL,
     REPORT_CALLBACK_PREFIX,
     REPORT_CONFIRM,
     REPORT_DESCRIPTION,
@@ -39,6 +41,7 @@ from bot.handlers.menu import (
     handle_menu_go_callback,
     handle_menu_keep_callback,
 )
+from bot.handlers.persistent_keyboard import handle_persistent_keyboard_message
 from bot.handlers.report import (
     confirm_report,
     receive_description,
@@ -70,6 +73,10 @@ logger = logging.getLogger(__name__)
 
 _ALLOWED_UPDATES = ["message", "callback_query"]
 
+_PERSISTENT_KEYBOARD_TEXT_FILTER = filters.Regex(
+    rf"^({PERSISTENT_MENU_LABEL}|{PERSISTENT_CANCEL_LABEL})$"
+)
+
 
 def build_application(settings: BotSettings) -> Application:
     application = Application.builder().token(settings.telegram_bot_token).build()
@@ -83,6 +90,10 @@ def build_application(settings: BotSettings) -> Application:
         entry_points=[
             CommandHandler("start", start_command),
             CommandHandler("menu", menu_command),
+            MessageHandler(
+                _PERSISTENT_KEYBOARD_TEXT_FILTER,
+                handle_persistent_keyboard_message,
+            ),
             CallbackQueryHandler(
                 handle_menu_callback,
                 pattern=rf"^{MENU_CALLBACK_PREFIX}",
@@ -145,6 +156,10 @@ def build_application(settings: BotSettings) -> Application:
             CommandHandler("cancel", cancel_command),
             CommandHandler("start", start_command),
             CommandHandler("menu", menu_command),
+            MessageHandler(
+                _PERSISTENT_KEYBOARD_TEXT_FILTER,
+                handle_persistent_keyboard_message,
+            ),
             CommandHandler("help", help_command),
             CallbackQueryHandler(
                 handle_menu_go_callback,

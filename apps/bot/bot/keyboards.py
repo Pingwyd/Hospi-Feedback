@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 
 from bot.constants import (
     CONFIRM_CANCEL,
@@ -12,9 +18,28 @@ from bot.constants import (
     MENU_CALLBACK_PREFIX,
     MENU_GO_CALLBACK_PREFIX,
     MENU_KEEP_CALLBACK,
+    PERSISTENT_CANCEL_LABEL,
+    PERSISTENT_MENU_LABEL,
     REPORT_CALLBACK_PREFIX,
     SKIP_CALLBACK,
 )
+
+
+def persistent_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [
+            [
+                KeyboardButton(PERSISTENT_MENU_LABEL),
+                KeyboardButton(PERSISTENT_CANCEL_LABEL),
+            ]
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+    )
+
+
+def remove_persistent_keyboard() -> ReplyKeyboardRemove:
+    return ReplyKeyboardRemove()
 
 
 def main_menu_keyboard() -> InlineKeyboardMarkup:

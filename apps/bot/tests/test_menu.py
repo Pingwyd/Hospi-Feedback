@@ -24,7 +24,7 @@ from bot.handlers.menu import (
     handle_menu_keep_callback,
 )
 from bot.handlers.start import menu_command
-from bot.keyboards import main_menu_keyboard
+from bot.keyboards import main_menu_keyboard, remove_persistent_keyboard
 from bot.report_labels import report_type_label
 from bot.sessions import store_access_session
 from telegram.ext import ConversationHandler
@@ -190,7 +190,8 @@ async def test_handle_menu_callback_expired_session_returns_access_code() -> Non
 
     assert state == ACCESS_CODE
     update.callback_query.message.reply_text.assert_awaited_once_with(
-        SESSION_EXPIRED_ACCESS_CODE_MSG
+        SESSION_EXPIRED_ACCESS_CODE_MSG,
+        reply_markup=remove_persistent_keyboard(),
     )
 
 
@@ -220,4 +221,7 @@ async def test_menu_command_expired_session_returns_access_code() -> None:
     state = await menu_command(update, context)
 
     assert state == ACCESS_CODE
-    update.message.reply_text.assert_awaited_once_with(SESSION_EXPIRED_ACCESS_CODE_MSG)
+    update.message.reply_text.assert_awaited_once_with(
+        SESSION_EXPIRED_ACCESS_CODE_MSG,
+        reply_markup=remove_persistent_keyboard(),
+    )

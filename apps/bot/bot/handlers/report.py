@@ -24,6 +24,7 @@ from bot.constants import (
 )
 from bot.handlers.auth_gate import ensure_session_or_prompt
 from bot.handlers.menu import show_main_menu
+from bot.handlers.persistent_keyboard import try_handle_persistent_keyboard
 from bot.hashing import hash_telegram_identifier
 from bot.keyboards import confirm_keyboard, severity_keyboard, skip_keyboard
 from bot.messages import send_with_delete_button
@@ -73,6 +74,9 @@ async def receive_description(
 ) -> int:
     if update.message is None or update.message.text is None:
         return REPORT_DESCRIPTION
+    handled = await try_handle_persistent_keyboard(update, context)
+    if handled is not False:
+        return handled
     if not await ensure_session_or_prompt(update, context):
         return ConversationHandler.END
     description = update.message.text.strip()
@@ -93,6 +97,9 @@ async def receive_member_text(
 ) -> int:
     if update.message is None or update.message.text is None:
         return REPORT_MEMBER
+    handled = await try_handle_persistent_keyboard(update, context)
+    if handled is not False:
+        return handled
     _draft(context.user_data)["reported_member_name"] = update.message.text.strip()
     context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_SEVERITY
     return await _ask_severity(update, context)
