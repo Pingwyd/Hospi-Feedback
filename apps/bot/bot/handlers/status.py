@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import re
 
 from telegram import Update
@@ -16,6 +17,10 @@ from bot.constants import (
     TICKET_CODE_LENGTH,
 )
 from bot.handlers.auth_gate import ensure_session_or_prompt
+from bot.handlers.status_attachments import (
+    PHOTO_PLACEHOLDER,
+    iter_status_attachment_previews,
+)
 from bot.hashing import hash_telegram_identifier
 from bot.messages import send_with_delete_button
 from bot.sessions import access_token
@@ -49,7 +54,10 @@ def format_ticket_status(payload: dict) -> str:
         for item in messages:
             sender = item.get("sender_type", "unknown")
             content = item.get("content", "")
-            lines.append(f"- ({sender}) {content}")
+            if item.get("attachment") and content == PHOTO_PLACEHOLDER:
+                lines.append(f"- ({sender}) [photo attached below]")
+            else:
+                lines.append(f"- ({sender}) {content}")
     lines.append("")
     lines.append(STATUS_ASYNC_NOTE)
     lines.append(
@@ -75,6 +83,67 @@ async def _enforce_rate_limit(
         pepper=settings.telegram_identifier_pepper,
     )
     await api.check_rate_limit(token=token, identifier_hash=identifier_hash)
+
+
+def _extension_for_content_type(content_type: str) -> str:
+    lowered = content_type.lower()
+    if "png" in lowered:
+        return "png"
+    if "webp" in lowered:
+        return "webp"
+    return "jpg"
+
+
+async def _send_attachment_photo(
+    chat_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    api: HospiApiClient,
+    token: str,
+    caption: str,
+    preview_url: str,
+) -> None:
+    try:
+        data, content_type = await api.fetch_attachment_bytes(
+            token=token,
+            preview_url=preview_url,
+        )
+    except ApiClientError:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{caption}\nPhoto could not be loaded.",
+        )
+        return
+    extension = _extension_for_content_type(content_type)
+    buffer = io.BytesIO(data)
+    buffer.name = f"attachment.{extension}"
+    await context.bot.send_photo(
+        chat_id=chat_id,
+        photo=buffer,
+        caption=caption[:1024],
+    )
+
+
+async def _send_status_attachment_previews(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    api: HospiApiClient,
+    token: str,
+    payload: dict,
+) -> None:
+    chat = update.effective_chat
+    if chat is None:
+        return
+    for caption, preview_url in iter_status_attachment_previews(payload):
+        await _send_attachment_photo(
+            chat.id,
+            context,
+            api=api,
+            token=token,
+            caption=caption,
+            preview_url=preview_url,
+        )
 
 
 async def load_ticket(
@@ -116,6 +185,13 @@ async def load_ticket(
         context,
         text=f"Ticket `{ticket_code}`\n\n{body}",
         parse_mode="Markdown",
+    )
+    await _send_status_attachment_previews(
+        update,
+        context,
+        api=api,
+        token=token,
+        payload=payload,
     )
     return True
 
@@ -185,3 +261,55 @@ async def status_chat_message(
             )
         return
     await update.message.reply_text("Message sent.")
+
+
+async def status_chat_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None or not update.message.photo:
+        return
+    ticket_code = context.user_data.get(STATUS_TICKET_KEY)
+    if not isinstance(ticket_code, str):
+        return
+    if not await ensure_session_or_prompt(update, context):
+        return
+    api: HospiApiClient = context.application.bot_data["api_client"]
+    token = access_token(context.user_data)
+    if token is None:
+        return
+    photo = update.message.photo[-1]
+    try:
+        await _enforce_rate_limit(update, context)
+        telegram_file = await context.bot.get_file(photo.file_id)
+        photo_bytes = bytes(await telegram_file.download_as_bytearray())
+        result = await api.upload_attachment(
+            token=token,
+            ticket_code=ticket_code,
+            filename="telegram-followup.jpg",
+            content_type="image/jpeg",
+            data=photo_bytes,
+            link_to_thread=True,
+        )
+    except ApiClientError as exc:
+        if exc.status_code == 429:
+            await update.message.reply_text(
+                "You have sent too many requests. Try again later."
+            )
+        elif exc.status_code == 409:
+            await update.message.reply_text("This ticket is closed.")
+            context.user_data.pop(STATUS_TICKET_KEY, None)
+        else:
+            await update.message.reply_text(
+                "Could not upload your photo. Try again in a moment."
+            )
+        return
+    preview_url = result.get("preview_url")
+    if isinstance(preview_url, str) and preview_url.strip():
+        await _send_attachment_photo(
+            update.effective_chat.id,
+            context,
+            api=api,
+            token=token,
+            caption="Your follow-up photo",
+            preview_url=preview_url,
+        )
+    else:
+        await update.message.reply_text("Photo sent.")

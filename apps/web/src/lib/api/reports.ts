@@ -17,11 +17,19 @@ export type CreateReportResponse = {
   created_at: string;
 };
 
+export type AttachmentSummary = {
+  id: string;
+  file_type: string;
+  uploaded_at: string;
+  preview_url: string;
+};
+
 export type Message = {
   id: string;
   sender_type: "reporter" | "admin";
   content: string;
   created_at: string;
+  attachment?: AttachmentSummary | null;
 };
 
 export type TicketStatusResponse = {
@@ -32,6 +40,7 @@ export type TicketStatusResponse = {
   severity: string | null;
   created_at: string;
   updated_at: string;
+  report_attachments: AttachmentSummary[];
   messages: Message[];
 };
 
@@ -39,6 +48,8 @@ export type AttachmentResponse = {
   id: string;
   file_type: string;
   uploaded_at: string;
+  message_id?: string | null;
+  preview_url?: string | null;
 };
 
 export async function createReport(
@@ -67,11 +78,13 @@ export async function postReporterMessage(
 export async function uploadAttachment(
   ticketCode: string,
   file: File,
+  options: { linkToThread?: boolean } = {},
 ): Promise<AttachmentResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  const query = options.linkToThread ? "?link_to_thread=true" : "";
   return apiFetch<AttachmentResponse>(
-    `/api/reports/ticket/${encodeURIComponent(ticketCode)}/attachments`,
+    `/api/reports/ticket/${encodeURIComponent(ticketCode)}/attachments${query}`,
     {
       method: "POST",
       body: formData,
