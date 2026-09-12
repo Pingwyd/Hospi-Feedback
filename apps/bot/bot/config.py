@@ -25,7 +25,7 @@ class BotSettings(BaseSettings):
     api_base_url: str = "http://127.0.0.1:8000"
     telegram_identifier_pepper: str
     bot_service_secret: str = ""
-    stats_render_mode: StatsRenderMode = "image"
+    stats_render_mode: StatsRenderMode = "text"
     bot_mode: str = "polling"
     webhook_base_url: str = ""
     webhook_path: str = "telegram-webhook"

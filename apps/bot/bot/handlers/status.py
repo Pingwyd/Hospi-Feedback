@@ -17,6 +17,7 @@ from bot.constants import (
     TICKET_CODE_LENGTH,
 )
 from bot.handlers.auth_gate import ensure_session_or_prompt
+from bot.handlers.persistent_keyboard import try_handle_persistent_keyboard
 from bot.handlers.status_attachments import (
     PHOTO_PLACEHOLDER,
     iter_status_attachment_previews,
@@ -216,6 +217,9 @@ async def receive_status_code(
 ) -> int:
     if update.message is None or update.message.text is None:
         return STATUS_AWAIT_CODE
+    handled = await try_handle_persistent_keyboard(update, context)
+    if handled is not False:
+        return handled
     ticket_code = normalize_ticket_code(update.message.text)
     if ticket_code is None:
         await update.message.reply_text(
@@ -233,6 +237,9 @@ async def status_chat_message(
         return
     ticket_code = context.user_data.get(STATUS_TICKET_KEY)
     if not isinstance(ticket_code, str):
+        return
+    handled = await try_handle_persistent_keyboard(update, context)
+    if handled is not False:
         return
     if not await ensure_session_or_prompt(update, context):
         return

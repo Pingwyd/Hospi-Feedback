@@ -14,6 +14,7 @@ from bot.constants import (
     MENU_CALLBACK_PREFIX,
     MENU_DISCARD_CONFIRM,
     MENU_GO_CALLBACK_PREFIX,
+    PERSISTENT_KEYBOARD_ATTACHED_KEY,
     REPORT_CONFIRM,
     REPORT_DESCRIPTION,
     REPORT_DRAFT_KEY,
@@ -28,6 +29,7 @@ from bot.constants import (
 from bot.keyboards import (
     discard_confirm_keyboard,
     main_menu_keyboard,
+    remove_persistent_keyboard,
     severity_keyboard,
     skip_keyboard,
 )
@@ -63,8 +65,12 @@ async def prompt_expired_session_access_code(
     else:
         target = update.message
     _clear_stale_session_data(context.user_data)
+    context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
     if target is not None:
-        await target.reply_text(SESSION_EXPIRED_ACCESS_CODE_MSG)
+        await target.reply_text(
+            SESSION_EXPIRED_ACCESS_CODE_MSG,
+            reply_markup=remove_persistent_keyboard(),
+        )
     return ACCESS_CODE
 
 

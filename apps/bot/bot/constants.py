@@ -26,6 +26,10 @@ REPORT_DRAFT_KEY = "report_draft"
 REPORT_FLOW_STATE_KEY = "report_flow_state"
 STATUS_TICKET_KEY = "status_ticket_code"
 DELETE_TARGETS_KEY = "delete_targets"
+PERSISTENT_KEYBOARD_ATTACHED_KEY = "persistent_keyboard_attached"
+
+PERSISTENT_MENU_LABEL = "Menu"
+PERSISTENT_CANCEL_LABEL = "Cancel"
 
 SESSION_EXPIRED_ACCESS_CODE_MSG = (
     "Your session expired. Enter your access code to continue."
