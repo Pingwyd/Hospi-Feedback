@@ -16,6 +16,7 @@ from bot.constants import (
     REPORT_CONFIRM,
     REPORT_DESCRIPTION,
     REPORT_DRAFT_KEY,
+    REPORT_FLOW_STATE_KEY,
     REPORT_MEMBER,
     REPORT_PHOTO,
     REPORT_SEVERITY,
@@ -26,6 +27,7 @@ from bot.handlers.menu import show_main_menu
 from bot.hashing import hash_telegram_identifier
 from bot.keyboards import confirm_keyboard, severity_keyboard, skip_keyboard
 from bot.messages import send_with_delete_button
+from bot.report_labels import report_type_label
 from bot.sessions import access_token
 
 SUMMARY_TEMPLATE = (
@@ -78,6 +80,7 @@ async def receive_description(
         await update.message.reply_text("Please enter a description.")
         return REPORT_DESCRIPTION
     _draft(context.user_data)["description"] = description
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_MEMBER
     await update.message.reply_text(
         "Optional: name a member involved, or tap Skip.",
         reply_markup=skip_keyboard(),
@@ -91,6 +94,7 @@ async def receive_member_text(
     if update.message is None or update.message.text is None:
         return REPORT_MEMBER
     _draft(context.user_data)["reported_member_name"] = update.message.text.strip()
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_SEVERITY
     return await _ask_severity(update, context)
 
 
@@ -103,6 +107,7 @@ async def skip_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         message = update.message
     if message is None:
         return REPORT_MEMBER
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_SEVERITY
     await message.reply_text(
         "Optional: choose a severity, or tap Skip.",
         reply_markup=severity_keyboard(),
@@ -116,6 +121,7 @@ async def _ask_severity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         message = update.callback_query.message
     if message is None:
         return REPORT_SEVERITY
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_SEVERITY
     await message.reply_text(
         "Optional: choose a severity, or tap Skip.",
         reply_markup=severity_keyboard(),
@@ -129,15 +135,18 @@ async def receive_severity(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return REPORT_SEVERITY
     await query.answer()
     if query.data == SKIP_CALLBACK:
+        context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_PHOTO
         return await _ask_photo(query.message, context)
     severity = query.data.removeprefix(REPORT_CALLBACK_PREFIX)
     if severity not in {"low", "medium", "high"}:
         return REPORT_SEVERITY
     _draft(context.user_data)["severity"] = severity
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_PHOTO
     return await _ask_photo(query.message, context)
 
 
 async def _ask_photo(message, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_PHOTO
     await message.reply_text(
         "Optional: send one photo, or tap Skip.",
         reply_markup=skip_keyboard(),
@@ -165,14 +174,16 @@ async def skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def _show_confirm(message, context: ContextTypes.DEFAULT_TYPE) -> int:
     draft = _draft(context.user_data)
+    report_type = str(draft.get("report_type", "unknown"))
     summary = SUMMARY_TEMPLATE.format(
-        report_type=draft.get("report_type", "unknown"),
+        report_type=report_type_label(report_type),
         description=draft.get("description", ""),
         member=draft.get("reported_member_name") or "None",
         severity=draft.get("severity") or "None",
         photo="Yes" if draft.get("photo_file_id") else "No",
         privacy=PRIVACY_NOTICE,
     )
+    context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_CONFIRM
     await message.reply_text(summary, reply_markup=confirm_keyboard())
     return REPORT_CONFIRM
 
@@ -184,6 +195,7 @@ async def confirm_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
     if query.data == CONFIRM_CANCEL:
         context.user_data.pop(REPORT_DRAFT_KEY, None)
+        context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
         await query.message.reply_text("Report cancelled.")
         await show_main_menu(update, context)
         return ConversationHandler.END
@@ -228,6 +240,7 @@ async def confirm_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         return ConversationHandler.END
     context.user_data.pop(REPORT_DRAFT_KEY, None)
+    context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
     await query.message.reply_text("Report submitted.")
     await send_with_delete_button(
         update,

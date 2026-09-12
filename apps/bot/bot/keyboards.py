@@ -10,6 +10,8 @@ from bot.constants import (
     DELETE_BUTTON_LABEL,
     DELETE_CALLBACK_PREFIX,
     MENU_CALLBACK_PREFIX,
+    MENU_GO_CALLBACK_PREFIX,
+    MENU_KEEP_CALLBACK,
     REPORT_CALLBACK_PREFIX,
     SKIP_CALLBACK,
 )
@@ -79,6 +81,20 @@ def confirm_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton("Submit report", callback_data=CONFIRM_SUBMIT),
                 InlineKeyboardButton("Cancel", callback_data=CONFIRM_CANCEL),
             ]
+        ]
+    )
+
+
+def discard_confirm_keyboard(action: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Discard and continue",
+                    callback_data=f"{MENU_GO_CALLBACK_PREFIX}{action}",
+                )
+            ],
+            [InlineKeyboardButton("Keep report", callback_data=MENU_KEEP_CALLBACK)],
         ]
     )
 
