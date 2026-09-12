@@ -47,7 +47,12 @@ from bot.handlers.start import (
     receive_access_code,
     start_command,
 )
-from bot.handlers.status import receive_status_code, status_chat_message, status_command
+from bot.handlers.status import (
+    receive_status_code,
+    status_chat_message,
+    status_chat_photo,
+    status_command,
+)
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -135,6 +140,10 @@ def build_application(settings: BotSettings) -> Application:
             delete_message_callback,
             pattern=rf"^{DELETE_CALLBACK_PREFIX}\d+$",
         )
+    )
+    application.add_handler(
+        MessageHandler(filters.PHOTO, status_chat_photo),
+        group=1,
     )
     application.add_handler(
         MessageHandler(

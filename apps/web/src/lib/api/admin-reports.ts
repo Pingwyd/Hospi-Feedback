@@ -22,11 +22,19 @@ export type ReportSummary = {
   updated_at?: string | null;
 };
 
+export type AttachmentSummary = {
+  id: string;
+  file_type: string;
+  uploaded_at: string;
+  preview_url: string;
+};
+
 export type ReportMessage = {
   id: string;
   sender_type: "reporter" | "admin";
   content: string;
   created_at: string;
+  attachment?: AttachmentSummary | null;
 };
 
 export type InternalNote = {
@@ -38,6 +46,7 @@ export type InternalNote = {
 
 export type ReportDetail = {
   report: Record<string, unknown>;
+  report_attachments: AttachmentSummary[];
   messages: ReportMessage[];
   internal_notes: InternalNote[];
 };

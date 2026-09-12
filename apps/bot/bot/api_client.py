@@ -116,15 +116,51 @@ class HospiApiClient:
         filename: str,
         content_type: str,
         data: bytes,
+        link_to_thread: bool = False,
     ) -> dict[str, Any]:
+        query = "?link_to_thread=true" if link_to_thread else ""
         headers = {"Authorization": f"Bearer {token}"}
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
-                f"{self._base_url}/api/reports/ticket/{ticket_code}/attachments",
+                f"{self._base_url}/api/reports/ticket/{ticket_code}/attachments{query}",
                 headers=headers,
                 files={"file": (filename, data, content_type)},
             )
         return self._parse_response(response)
+
+    async def fetch_attachment_bytes(
+        self,
+        *,
+        token: str,
+        preview_url: str,
+    ) -> tuple[bytes, str]:
+        path = preview_url if preview_url.startswith("/") else f"/{preview_url}"
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.get(
+                f"{self._base_url}{path}",
+                headers=headers,
+            )
+        if response.is_success:
+            content_type = response.headers.get(
+                "content-type", "application/octet-stream"
+            )
+            return response.content, content_type
+        payload: Any = {}
+        if response.content:
+            payload = response.json()
+        if isinstance(payload, dict) and "error" in payload:
+            error = payload["error"]
+            raise ApiClientError(
+                response.status_code,
+                str(error.get("code", "error")),
+                str(error.get("message", "Request failed.")),
+            )
+        raise ApiClientError(
+            response.status_code,
+            "error",
+            f"Request failed with status {response.status_code}.",
+        )
 
     async def _request(
         self,

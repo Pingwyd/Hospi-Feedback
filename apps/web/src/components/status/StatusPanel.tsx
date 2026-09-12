@@ -7,12 +7,15 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { checkAccessSession } from "@/lib/api/access";
+import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
 import {
   type TicketStatusResponse,
   fetchTicketStatus,
   postReporterMessage,
   uploadAttachment,
 } from "@/lib/api/reports";
+
+const PHOTO_PLACEHOLDER = "Photo attached";
 
 type StatusPanelProps = {
   ticketCode: string;
@@ -102,7 +105,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     setActionError(null);
     setUploading(true);
     try {
-      await uploadAttachment(ticketCode, file);
+      await uploadAttachment(ticketCode, file, { linkToThread: true });
       await loadStatus();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -186,6 +189,23 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
         </dl>
       </section>
 
+      {(data.report_attachments?.length ?? 0) > 0 ? (
+        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <h2 className="mb-4 text-sm font-semibold text-ink">Photos on original report</h2>
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {data.report_attachments.map((attachment) => (
+              <li key={attachment.id}>
+                <AttachmentPreview
+                  previewUrl={attachment.preview_url}
+                  alt="Original report photo"
+                  authMode="session"
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-ink">Conversation</h2>
         {data.messages.length === 0 ? (
@@ -204,7 +224,16 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/50">
                   {entry.sender_type}
                 </p>
-                <p className="whitespace-pre-wrap">{entry.content}</p>
+                {entry.attachment ? (
+                  <AttachmentPreview
+                    previewUrl={entry.attachment.preview_url}
+                    alt="Follow-up photo"
+                    authMode="session"
+                  />
+                ) : null}
+                {entry.content !== PHOTO_PLACEHOLDER || !entry.attachment ? (
+                  <p className="whitespace-pre-wrap">{entry.content}</p>
+                ) : null}
               </li>
             ))}
           </ul>

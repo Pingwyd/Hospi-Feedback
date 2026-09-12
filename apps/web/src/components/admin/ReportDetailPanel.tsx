@@ -29,6 +29,9 @@ import {
   type ReportStatus,
 } from "@/lib/api/admin-reports";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
+import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
+
+const PHOTO_PLACEHOLDER = "Photo attached";
 
 type ReportDetailPanelProps = {
   reportId: string;
@@ -496,6 +499,25 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
           </section>
         </div>
 
+        {(detail?.report_attachments?.length ?? 0) > 0 ? (
+          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
+              Photos on original report
+            </h2>
+            <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+              {(detail?.report_attachments ?? []).map((attachment) => (
+                <li key={attachment.id}>
+                  <AttachmentPreview
+                    previewUrl={attachment.preview_url}
+                    alt="Original report photo"
+                    authMode="admin"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             Reporter chat
@@ -513,7 +535,16 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                 <p className="mb-1 text-xs uppercase tracking-wide opacity-70">
                   {message.sender_type}
                 </p>
-                <p>{message.content}</p>
+                {message.attachment ? (
+                  <AttachmentPreview
+                    previewUrl={message.attachment.preview_url}
+                    alt="Follow-up photo"
+                    authMode="admin"
+                  />
+                ) : null}
+                {message.content !== PHOTO_PLACEHOLDER || !message.attachment ? (
+                  <p>{message.content}</p>
+                ) : null}
               </div>
             ))}
           </div>
