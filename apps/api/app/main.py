@@ -6,6 +6,7 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.admin_audit import router as admin_audit_router
 from app.api.routes.admin_config import router as admin_config_router
 from app.api.routes.admin_dashboard import router as admin_dashboard_router
+from app.api.routes.admin_export import router as admin_export_router
 from app.api.routes.admin_management import router as admin_management_router
 from app.api.routes.admin_reports import router as admin_reports_router
 from app.api.routes.admin_telegram import router as admin_telegram_router
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_management_router)
     app.include_router(admin_audit_router)
     app.include_router(admin_dashboard_router)
+    app.include_router(admin_export_router)
     app.include_router(admin_telegram_router)
     app.include_router(internal_jobs_router)
     app.include_router(reports_router)

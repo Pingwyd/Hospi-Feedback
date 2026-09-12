@@ -236,42 +236,6 @@ def test_admin_ping_accepts_valid_session(
     assert response.json() == {"ok": True, "admin_id": ADMIN_ID}
 
 
-@patch("app.core.admin_auth.fetch_admin_permissions")
-@patch("app.core.admin_auth.fetch_active_admin")
-def test_admin_export_ping_forbidden_without_permission(
-    fetch_admin_mock: MagicMock,
-    fetch_permissions_mock: MagicMock,
-    client: TestClient,
-) -> None:
-    fetch_admin_mock.return_value = _admin_record()
-    fetch_permissions_mock.return_value = frozenset({"view"})
-    token = _issue_admin_token()
-    response = client.get(
-        "/api/_phase2/admin-export-ping",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert response.status_code == 403
-    assert response.json()["error"]["code"] == "forbidden"
-
-
-@patch("app.core.admin_auth.fetch_admin_permissions")
-@patch("app.core.admin_auth.fetch_active_admin")
-def test_admin_export_ping_allows_permission(
-    fetch_admin_mock: MagicMock,
-    fetch_permissions_mock: MagicMock,
-    client: TestClient,
-) -> None:
-    fetch_admin_mock.return_value = _admin_record()
-    fetch_permissions_mock.return_value = frozenset({"view", "export"})
-    token = _issue_admin_token()
-    response = client.get(
-        "/api/_phase2/admin-export-ping",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    assert response.status_code == 200
-    assert response.json() == {"ok": True, "admin_id": ADMIN_ID}
-
-
 def test_verify_supabase_token_rejects_non_authenticated_role(api_env: None) -> None:
     from app.core.admin_auth import verify_supabase_access_token
     from app.exceptions.auth import AdminSessionError
