@@ -53,10 +53,7 @@ export function AdminShell({ children }: AdminShellProps) {
       href: "/admin/settings",
       label: "Settings",
       icon: Settings,
-      visible:
-        hasPermission("manage_categories") ||
-        hasPermission("manage_escalation_contacts") ||
-        hasPermission("manage_admins"),
+      visible: hasPermission("view"),
     },
   ];
 
