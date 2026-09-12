@@ -76,7 +76,7 @@ function statusControlButtonClass(isCurrent: boolean): string {
   if (isCurrent) {
     return "rounded-full border border-sage/50 bg-sage/15 px-3 py-1.5 text-xs font-semibold capitalize text-sage ring-2 ring-sage/25";
   }
-  return "rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-white disabled:cursor-not-allowed disabled:opacity-60";
+  return "rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60";
 }
 
 function mergeReportPatch(
@@ -434,7 +434,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
           </div>
         ) : null}
 
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+        <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             Case summary
           </h2>
@@ -467,7 +467,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
         </section>
 
         <div className="grid gap-6 xl:grid-cols-2">
-          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Status
             </h2>
@@ -518,7 +518,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             ) : null}
           </section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Assignment
             </h2>
@@ -549,7 +549,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                     type="button"
                     disabled={busy}
                     onClick={() => void completeAssignReport(profile.id)}
-                    className="ml-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-white/70 disabled:opacity-60"
+                    className="ml-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-surface/70 disabled:opacity-60"
                   >
                     Assign to me
                   </button>
@@ -562,7 +562,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             )}
           </section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Link member
             </h2>
@@ -596,7 +596,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             )}
           </section>
 
-          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Escalation
             </h2>
@@ -632,7 +632,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
         </div>
 
         {(detail?.report_attachments?.length ?? 0) > 0 ? (
-          <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+          <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Photos on original report
             </h2>
@@ -650,7 +650,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
           </section>
         ) : null}
 
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+        <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             Reporter chat
           </h2>
@@ -705,7 +705,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
           )}
         </section>
 
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+        <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
             Internal notes
           </h2>

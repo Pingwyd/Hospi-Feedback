@@ -53,7 +53,7 @@ export default function StatusLookupPage() {
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
       <form
         onSubmit={handleSubmit}
-        className="rounded-2xl border border-ink/10 bg-white/60 p-8 shadow-sm"
+        className="rounded-2xl border border-ink/10 bg-surface/60 p-8 shadow-sm"
       >
         <h1 className="text-xl font-semibold text-ink">Check ticket status</h1>
         <p className="mt-2 text-sm text-ink/70">

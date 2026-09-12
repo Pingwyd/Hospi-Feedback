@@ -139,11 +139,11 @@ export function EscalationContactsPanel() {
           {error}
         </div>
       ) : contacts.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-white/60 p-8 text-center text-sm text-ink/60">
+        <div className="rounded-2xl border border-ink/10 bg-surface/60 p-8 text-center text-sm text-ink/60">
           No escalation contacts yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/60 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface/60 shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-ink/10 bg-paper/70 text-xs uppercase tracking-wide text-ink/50">

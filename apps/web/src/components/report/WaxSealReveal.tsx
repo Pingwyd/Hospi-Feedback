@@ -34,7 +34,7 @@ export function WaxSealReveal({ ticketCode }: WaxSealRevealProps) {
   return (
     <section
       aria-labelledby="confirmation-heading"
-      className="rounded-2xl border border-ink/10 bg-white/70 p-8 shadow-sm"
+      className="rounded-2xl border border-ink/10 bg-surface/70 p-8 shadow-sm"
     >
       <div className="mb-6 flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sage/15 text-sage">

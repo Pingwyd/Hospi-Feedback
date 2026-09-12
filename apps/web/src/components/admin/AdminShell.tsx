@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from "react";
 
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type NavItem = {
   href: string;
@@ -65,7 +66,7 @@ export function AdminShell({ children }: AdminShellProps) {
   return (
     <div className="min-h-screen bg-paper text-ink">
       <div className="mx-auto flex min-h-screen max-w-7xl">
-        <aside className="hidden w-64 shrink-0 border-r border-ink/10 bg-white/40 p-6 lg:block">
+        <aside className="hidden w-64 shrink-0 border-r border-ink/10 bg-surface/40 p-6 lg:block">
           <div className="mb-8 flex items-center gap-3">
             <Building2 className="text-sage" size={22} />
             <div>
@@ -100,7 +101,7 @@ export function AdminShell({ children }: AdminShellProps) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="border-b border-ink/10 bg-white/50 px-4 py-4 sm:px-6">
+          <header className="border-b border-ink/10 bg-surface/50 px-4 py-4 sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm text-ink/60">Signed in as</p>
@@ -108,14 +109,17 @@ export function AdminShell({ children }: AdminShellProps) {
                   {profile?.full_name ?? "Admin"}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink hover:bg-white/70"
-              >
-                <LogOut size={16} />
-                Sign out
-              </button>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink hover:bg-surface/70"
+                >
+                  <LogOut size={16} />
+                  Sign out
+                </button>
+              </div>
             </div>
             <nav className="mt-4 flex gap-2 overflow-x-auto lg:hidden">
               {navItems
@@ -129,7 +133,7 @@ export function AdminShell({ children }: AdminShellProps) {
                       className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
                         active
                           ? "bg-ink text-paper"
-                          : "bg-white/70 text-ink/70 ring-1 ring-ink/10"
+                          : "bg-surface/70 text-ink/70 ring-1 ring-ink/10"
                       }`}
                     >
                       {item.label}

@@ -8,7 +8,7 @@ export function SkeletonBlock({ className = "h-4 w-full" }: SkeletonBlockProps) 
 
 export function SkeletonCard() {
   return (
-    <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+    <div className="space-y-3 rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
       <SkeletonBlock className="h-6 w-1/3" />
       <SkeletonBlock className="h-4 w-full" />
       <SkeletonBlock className="h-4 w-5/6" />
