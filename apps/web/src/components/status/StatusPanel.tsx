@@ -166,7 +166,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
         </button>
       </header>
 
-      <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+      <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
         <dl className="grid gap-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-ink/60">Status</dt>
@@ -190,7 +190,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
       </section>
 
       {(data.report_attachments?.length ?? 0) > 0 ? (
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+        <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-ink">Photos on original report</h2>
           <ul className="grid gap-4 sm:grid-cols-2">
             {data.report_attachments.map((attachment) => (
@@ -206,7 +206,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+      <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-ink">Conversation</h2>
         {data.messages.length === 0 ? (
           <p className="text-sm text-ink/60">No messages yet.</p>
@@ -245,7 +245,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
           This report is closed. You can no longer send messages or upload attachments.
         </p>
       ) : (
-        <section className="space-y-4 rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+        <section className="space-y-4 rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <form onSubmit={handleMessageSubmit} className="space-y-3">
             <label htmlFor="message" className="block text-sm font-medium text-ink">
               Send a message

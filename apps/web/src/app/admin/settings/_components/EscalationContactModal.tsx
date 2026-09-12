@@ -68,7 +68,7 @@ export function EscalationContactModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4"
       role="presentation"
       onClick={onCancel}
     >
@@ -105,7 +105,7 @@ export function EscalationContactModal({
                 setForm((current) => ({ ...current, name: event.target.value }))
               }
               required
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -120,7 +120,7 @@ export function EscalationContactModal({
               }
               required
               placeholder="e.g. Unit Chaplain, HR Liaison"
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -135,7 +135,7 @@ export function EscalationContactModal({
                   contact_email: event.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -150,7 +150,7 @@ export function EscalationContactModal({
                   contact_phone: event.target.value,
                 }))
               }
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -158,7 +158,7 @@ export function EscalationContactModal({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-white/70"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-surface/70"
             >
               Cancel
             </button>

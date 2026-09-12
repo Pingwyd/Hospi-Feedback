@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 selected
                   ? "bg-ink text-paper"
-                  : "bg-white/70 text-ink/70 ring-1 ring-ink/10 hover:text-ink"
+                  : "bg-surface/70 text-ink/70 ring-1 ring-ink/10 hover:text-ink"
               }`}
             >
               {tab.label}

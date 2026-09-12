@@ -98,7 +98,7 @@ export function CategoriesPanel() {
       {canManage ? (
         <form
           onSubmit={handleCreate}
-          className="rounded-2xl border border-ink/10 bg-white/60 p-4 shadow-sm"
+          className="rounded-2xl border border-ink/10 bg-surface/60 p-4 shadow-sm"
         >
           <label className="block">
             <span className="mb-1 text-sm font-medium text-ink">
@@ -135,11 +135,11 @@ export function CategoriesPanel() {
           {error}
         </div>
       ) : categories.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-white/60 p-8 text-center text-sm text-ink/60">
+        <div className="rounded-2xl border border-ink/10 bg-surface/60 p-8 text-center text-sm text-ink/60">
           No categories yet.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/60 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface/60 shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-ink/10 bg-paper/70 text-xs uppercase tracking-wide text-ink/50">

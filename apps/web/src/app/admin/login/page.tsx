@@ -46,7 +46,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper px-6 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-white/60 p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface/60 p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
           <Lock className="text-sage" size={22} />
           <div>

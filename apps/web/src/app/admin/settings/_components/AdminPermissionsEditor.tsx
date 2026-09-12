@@ -47,7 +47,7 @@ export function AdminPermissionsEditor({
               className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm ${
                 checked
                   ? "border-sage/40 bg-sage/10 text-ink"
-                  : "border-ink/10 bg-white/60 text-ink/80"
+                  : "border-ink/10 bg-surface/60 text-ink/80"
               } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
             >
               <input

@@ -5,10 +5,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#16241F",
-        paper: "#F3EFE6",
-        brass: "#A6803C",
-        sage: "#6B8F71",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        paper: "rgb(var(--color-paper) / <alpha-value>)",
+        brass: "rgb(var(--color-brass) / <alpha-value>)",
+        sage: "rgb(var(--color-sage) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        scrim: "rgb(var(--color-scrim) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

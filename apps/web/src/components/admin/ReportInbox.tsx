@@ -39,7 +39,7 @@ function statusBadgeClass(status: string | null | undefined): string {
     case "resolved":
       return "bg-ink/10 text-ink/70";
     default:
-      return "bg-white text-ink/80 ring-1 ring-ink/10";
+      return "bg-surface text-ink/80 ring-1 ring-ink/10";
   }
 }
 
@@ -145,7 +145,7 @@ export function ReportInbox() {
 
       <div
         role="search"
-        className="rounded-2xl border border-ink/10 bg-white/60 p-4 shadow-sm"
+        className="rounded-2xl border border-ink/10 bg-surface/60 p-4 shadow-sm"
       >
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
@@ -247,11 +247,11 @@ export function ReportInbox() {
           {errorMessage}
         </div>
       ) : reports.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-white/60 p-8 text-center text-sm text-ink/60">
+        <div className="rounded-2xl border border-ink/10 bg-surface/60 p-8 text-center text-sm text-ink/60">
           No reports match the current filters.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/60 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-surface/60 shadow-sm">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-ink/10 bg-paper/70 text-xs uppercase tracking-wide text-ink/50">

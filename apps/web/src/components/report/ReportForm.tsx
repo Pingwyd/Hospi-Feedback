@@ -103,7 +103,7 @@ export function ReportForm({ onSubmitted }: ReportFormProps) {
         </p>
       </header>
 
-      <div className="space-y-5 rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+      <div className="space-y-5 rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
         <div>
           <label htmlFor="report-type" className="mb-2 block text-sm font-medium text-ink">
             Report type <span className="text-brass">*</span>

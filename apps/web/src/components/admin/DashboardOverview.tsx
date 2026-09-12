@@ -22,7 +22,7 @@ function BarChart({
   const max = Math.max(...entries.map(([, count]) => count), 1);
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+    <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink/60">
         {title}
       </h2>
@@ -145,7 +145,7 @@ export function DashboardOverview() {
         <BarChart title="Report types" counts={stats.report_type_counts} />
       </div>
 
-      <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
+      <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink/60">
           Submissions by day
         </h2>

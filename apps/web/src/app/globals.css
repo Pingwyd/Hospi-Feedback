@@ -6,6 +6,22 @@
 
 :root {
   color-scheme: light;
+  --color-ink: 22 36 31;
+  --color-paper: 243 239 230;
+  --color-brass: 166 128 60;
+  --color-sage: 107 143 113;
+  --color-surface: 255 255 255;
+  --color-scrim: 22 36 31;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ink: 232 228 219;
+  --color-paper: 18 26 23;
+  --color-brass: 212 168 85;
+  --color-sage: 157 190 164;
+  --color-surface: 28 36 32;
+  --color-scrim: 0 0 0;
 }
 
 body {
@@ -24,9 +40,9 @@ body {
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(22, 36, 31, 0.06) 0%,
-    rgba(22, 36, 31, 0.12) 50%,
-    rgba(22, 36, 31, 0.06) 100%
+    rgb(var(--color-ink) / 0.06) 0%,
+    rgb(var(--color-ink) / 0.12) 50%,
+    rgb(var(--color-ink) / 0.06) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;

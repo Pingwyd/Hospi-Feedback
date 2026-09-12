@@ -63,7 +63,7 @@ export function AdminUserCreateModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4 py-6"
       role="presentation"
       onClick={onCancel}
     >
@@ -100,7 +100,7 @@ export function AdminUserCreateModal({
                 setForm((current) => ({ ...current, full_name: event.target.value }))
               }
               required
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -116,7 +116,7 @@ export function AdminUserCreateModal({
               }
               required
               autoComplete="off"
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
 
@@ -133,7 +133,7 @@ export function AdminUserCreateModal({
               required
               minLength={12}
               autoComplete="new-password"
-              className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
             <p className="mt-1 text-xs text-ink/50">Minimum 12 characters.</p>
           </label>
@@ -152,7 +152,7 @@ export function AdminUserCreateModal({
                   }))
                 }
                 required
-                className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+                className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
               >
                 {ADMIN_ROLES.map((role) => (
                   <option key={role.value} value={role.value}>
@@ -170,7 +170,7 @@ export function AdminUserCreateModal({
                   setForm((current) => ({ ...current, subunit: event.target.value }))
                 }
                 placeholder="Optional"
-                className="w-full rounded-lg border border-ink/15 bg-white/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+                className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
               />
             </label>
           </div>
@@ -186,7 +186,7 @@ export function AdminUserCreateModal({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-white/70"
+              className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-surface/70"
             >
               Cancel
             </button>
