@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Filter, Search } from "lucide-react";
+import { AlertCircle, FileDown, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import { ApiError } from "@/lib/api/admin-fetch";
+import {
+  downloadAdminReportExport,
+  type AdminExportFormat,
+} from "@/lib/api/admin-export";
 import { useAdminReportsList } from "@/lib/hooks/useAdminReportsList";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
 import { useReportInboxUrlState } from "@/lib/hooks/useReportInboxUrlState";
@@ -38,11 +43,30 @@ function statusBadgeClass(status: string | null | undefined): string {
   }
 }
 
+function exportFilterSummary(status: string, keyword: string): string {
+  const parts: string[] = [];
+  if (status) {
+    parts.push(`status: ${status.replace(/_/g, " ")}`);
+  }
+  if (keyword) {
+    parts.push(`keyword: "${keyword}"`);
+  }
+  if (parts.length === 0) {
+    return "All reports (no filters applied)";
+  }
+  return parts.join(", ");
+}
+
 export function ReportInbox() {
   const queryClient = useQueryClient();
+  const { hasPermission } = useAdminSession();
   const { status, keyword, keywordDraft, setKeywordDraft, setStatus } =
     useReportInboxUrlState();
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
+  const [exportFormat, setExportFormat] = useState<AdminExportFormat>("pdf");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const canExport = hasPermission("export");
 
   const {
     data: reports = [],
@@ -71,6 +95,24 @@ export function ReportInbox() {
       : error
         ? "Could not load reports."
         : null;
+
+  async function handleExport() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadAdminReportExport(
+        {
+          status: status || undefined,
+          keyword: keyword || undefined,
+        },
+        exportFormat,
+      );
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : "Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const resultsAnnouncement = useMemo(() => {
     if (loading) {
@@ -137,6 +179,58 @@ export function ReportInbox() {
             </select>
           </label>
         </div>
+
+        {canExport ? (
+          <div className="mt-4 flex flex-col gap-3 border-t border-ink/10 pt-4 sm:flex-row sm:items-end sm:justify-between">
+            <p className="text-sm text-ink/70">
+              Export uses the current URL filters:{" "}
+              <span className="font-medium text-ink">
+                {exportFilterSummary(status, keyword)}
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink/50">
+                  Format
+                </span>
+                <select
+                  value={exportFormat}
+                  onChange={(event) =>
+                    setExportFormat(event.target.value as AdminExportFormat)
+                  }
+                  disabled={exporting}
+                  className="rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2 disabled:opacity-60"
+                >
+                  <option value="pdf">PDF</option>
+                  <option value="docx">DOCX</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={exporting}
+                onClick={() => void handleExport()}
+                className="inline-flex items-center gap-2 rounded-lg bg-sage px-4 py-2 text-sm font-semibold text-paper hover:bg-sage/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <FileDown size={16} aria-hidden="true" />
+                {exporting ? "Exporting..." : "Export filtered reports"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {exportError ? (
+          <div
+            role="alert"
+            className="mt-4 flex items-start gap-2 rounded-lg border border-brass/30 bg-brass/10 px-3 py-2 text-sm text-ink"
+          >
+            <AlertCircle
+              size={16}
+              className="mt-0.5 shrink-0 text-brass"
+              aria-hidden="true"
+            />
+            {exportError}
+          </div>
+        ) : null}
       </div>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
