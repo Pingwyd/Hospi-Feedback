@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, Send, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
@@ -34,6 +34,9 @@ import { invalidateAdminReportLists } from "@/lib/query/admin-report-queries";
 import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
 
 const PHOTO_PLACEHOLDER = "Photo attached";
+const DELETE_REASON_INPUT_ID = "delete-reason-input";
+const DELETE_REASON_ERROR_ID = "delete-reason-error";
+const DELETE_REASON_REQUIRED_MSG = "Delete reason is required.";
 
 type ReportDetailPanelProps = {
   reportId: string;
@@ -107,6 +110,10 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
   const [linkAdminId, setLinkAdminId] = useState("");
   const [escalationContactId, setEscalationContactId] = useState("");
   const [deleteReason, setDeleteReason] = useState("");
+  const [deleteReasonError, setDeleteReasonError] = useState<string | null>(
+    null,
+  );
+  const deleteReasonRef = useRef<HTMLTextAreaElement>(null);
   const [recusalOpen, setRecusalOpen] = useState(false);
   const [recusalMessage, setRecusalMessage] = useState("");
   const [pendingRecusal, setPendingRecusal] = useState<PendingRecusalAction | null>(
@@ -298,11 +305,16 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
 
   async function handleDelete() {
     if (!deleteReason.trim()) {
-      setActionError("Delete reason is required.");
+      setDeleteReasonError(DELETE_REASON_REQUIRED_MSG);
+      requestAnimationFrame(() => {
+        deleteReasonRef.current?.focus();
+        deleteReasonRef.current?.scrollIntoView({ block: "nearest" });
+      });
       return;
     }
     setBusy(true);
     setActionError(null);
+    setDeleteReasonError(null);
     try {
       await deleteReport(reportId, deleteReason.trim());
       await refreshInboxLists();
@@ -692,13 +704,48 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                   Head of Hospi only. This archives the report and writes a delete audit
                   entry.
                 </p>
+                <label
+                  htmlFor={DELETE_REASON_INPUT_ID}
+                  className="mt-4 block text-sm font-medium text-ink"
+                >
+                  Delete reason <span className="text-brass">*</span>
+                </label>
                 <textarea
+                  ref={deleteReasonRef}
+                  id={DELETE_REASON_INPUT_ID}
                   value={deleteReason}
-                  onChange={(event) => setDeleteReason(event.target.value)}
+                  onChange={(event) => {
+                    setDeleteReason(event.target.value);
+                    if (deleteReasonError) {
+                      setDeleteReasonError(null);
+                    }
+                  }}
                   rows={3}
-                  placeholder="Delete reason"
-                  className="mt-4 w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+                  placeholder="Why is this report being deleted?"
+                  aria-invalid={deleteReasonError ? true : undefined}
+                  aria-describedby={
+                    deleteReasonError ? DELETE_REASON_ERROR_ID : undefined
+                  }
+                  className={`mt-2 w-full rounded-lg border bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2 ${
+                    deleteReasonError
+                      ? "border-brass/50 ring-2 ring-brass/20"
+                      : "border-ink/15"
+                  }`}
                 />
+                {deleteReasonError ? (
+                  <p
+                    id={DELETE_REASON_ERROR_ID}
+                    role="alert"
+                    className="mt-2 flex items-start gap-2 rounded-lg border border-brass/30 bg-brass/10 px-3 py-2 text-sm text-ink"
+                  >
+                    <AlertCircle
+                      size={16}
+                      className="mt-0.5 shrink-0 text-brass"
+                      aria-hidden="true"
+                    />
+                    {deleteReasonError}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy}
