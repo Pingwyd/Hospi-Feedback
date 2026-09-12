@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Send, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -51,6 +51,43 @@ const STATUS_OPTIONS: { value: ReportStatus; permission: string }[] = [
   { value: "resolved", permission: "close" },
   { value: "closed", permission: "close" },
 ];
+
+/** Spec §4 authoritative status vocabulary, in triage-friendly order. */
+const ALL_REPORT_STATUSES: ReportStatus[] = [
+  "new",
+  "under_review",
+  "assigned",
+  "in_progress",
+  "escalated",
+  "resolved",
+  "closed",
+  "marked_false",
+];
+
+function formatStatusLabel(status: ReportStatus): string {
+  return status.replace(/_/g, " ");
+}
+
+function statusControlButtonClass(isCurrent: boolean): string {
+  if (isCurrent) {
+    return "rounded-full border border-sage/50 bg-sage/15 px-3 py-1.5 text-xs font-semibold capitalize text-sage ring-2 ring-sage/25";
+  }
+  return "rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-white disabled:cursor-not-allowed disabled:opacity-60";
+}
+
+function statusButtonAriaLabel(
+  status: ReportStatus,
+  options: { isCurrent: boolean; isActionable: boolean },
+): string {
+  const label = formatStatusLabel(status);
+  if (options.isCurrent) {
+    return `${label}, current status`;
+  }
+  if (options.isActionable) {
+    return `Change status to ${label}`;
+  }
+  return `${label}, not available`;
+}
 
 export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
   const router = useRouter();
@@ -126,6 +163,9 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
       ),
     [hasPermission],
   );
+
+  const currentStatus = (report?.status ?? "new") as ReportStatus;
+  const canChangeStatus = allowedStatuses.length > 0;
 
   async function runRecusalSensitiveAction(
     action: PendingRecusalAction,
@@ -352,25 +392,39 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Status
             </h2>
-            {allowedStatuses.length === 0 ? (
-              <p className="mt-3 text-sm text-ink/60">
-                You do not have permission to change report status.
-              </p>
-            ) : (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {allowedStatuses.map((status) => (
+            <div
+              role="group"
+              aria-label="Report status"
+              className="mt-4 flex flex-wrap gap-2"
+            >
+              {ALL_REPORT_STATUSES.map((status) => {
+                const isCurrent = status === currentStatus;
+                const isActionable =
+                  canChangeStatus && allowedStatuses.includes(status) && !isCurrent;
+                return (
                   <button
                     key={status}
                     type="button"
-                    disabled={busy}
+                    aria-current={isCurrent ? true : undefined}
+                    aria-label={statusButtonAriaLabel(status, {
+                      isCurrent,
+                      isActionable,
+                    })}
+                    disabled={busy || isCurrent || !isActionable}
                     onClick={() => void handleStatusChange(status)}
-                    className="rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-white disabled:opacity-60"
+                    className={`inline-flex items-center gap-1.5 ${statusControlButtonClass(isCurrent)}`}
                   >
-                    {status.replace(/_/g, " ")}
+                    {isCurrent ? <Check size={14} aria-hidden="true" /> : null}
+                    <span aria-hidden="true">{formatStatusLabel(status)}</span>
                   </button>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
+            {!canChangeStatus ? (
+              <p className="mt-3 text-sm text-ink/60">
+                You do not have permission to change report status.
+              </p>
+            ) : null}
             {hasPermission("close") ? (
               <button
                 type="button"
