@@ -139,6 +139,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
   );
   const deleteReasonRef = useRef<HTMLTextAreaElement>(null);
   const closeConfirmTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const recusalReturnFocusRef = useRef<HTMLElement | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [recusalOpen, setRecusalOpen] = useState(false);
   const [recusalMessage, setRecusalMessage] = useState("");
@@ -260,6 +261,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
       setCloseConfirmOpen(true);
       return;
     }
+    recusalReturnFocusRef.current = trigger ?? null;
     await runRecusalSensitiveAction({ type: "status", status });
   }
 
@@ -269,10 +271,12 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
 
   function handleCloseConfirm() {
     setCloseConfirmOpen(false);
+    recusalReturnFocusRef.current = closeConfirmTriggerRef.current;
     void runRecusalSensitiveAction({ type: "status", status: "closed" });
   }
 
-  async function handleMarkFalse() {
+  async function handleMarkFalse(trigger?: HTMLButtonElement | null) {
+    recusalReturnFocusRef.current = trigger ?? null;
     await runRecusalSensitiveAction({ type: "mark_false" });
   }
 
@@ -506,7 +510,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => void handleMarkFalse()}
+                onClick={(event) => void handleMarkFalse(event.currentTarget)}
                 className="mt-4 rounded-lg border border-brass/30 px-3 py-2 text-sm font-medium text-brass hover:bg-brass/10 disabled:opacity-60"
               >
                 Mark as false report
@@ -823,6 +827,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
       <RecusalConfirmModal
         open={recusalOpen}
         message={recusalMessage}
+        returnFocusRef={recusalReturnFocusRef}
         onCancel={() => {
           setRecusalOpen(false);
           setPendingRecusal(null);
