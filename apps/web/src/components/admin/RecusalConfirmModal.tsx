@@ -8,6 +8,7 @@ type RecusalConfirmModalProps = {
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 };
 
 export function RecusalConfirmModal({
@@ -15,6 +16,7 @@ export function RecusalConfirmModal({
   message,
   onConfirm,
   onCancel,
+  returnFocusRef,
 }: RecusalConfirmModalProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
 
@@ -24,6 +26,13 @@ export function RecusalConfirmModal({
     }
   }, [open]);
 
+  function handleCancel() {
+    onCancel();
+    requestAnimationFrame(() => {
+      returnFocusRef?.current?.focus();
+    });
+  }
+
   if (!open) {
     return null;
   }
@@ -32,7 +41,7 @@ export function RecusalConfirmModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4"
       role="presentation"
-      onClick={onCancel}
+      onClick={handleCancel}
     >
       <div
         role="dialog"
@@ -53,7 +62,7 @@ export function RecusalConfirmModal({
           </div>
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="rounded-md p-1 text-ink/60 hover:bg-ink/5 hover:text-ink"
             aria-label="Close dialog"
           >
@@ -67,7 +76,7 @@ export function RecusalConfirmModal({
         <div className="flex flex-wrap justify-end gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={handleCancel}
             className="rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-ink hover:bg-white/70"
           >
             Cancel
