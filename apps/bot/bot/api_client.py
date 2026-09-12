@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from urllib.parse import urlencode
 
 import httpx
 
@@ -47,6 +48,28 @@ class HospiApiClient:
             json={"channel": "telegram", "identifier_hash": identifier_hash},
             token=token,
         )
+
+    async def fetch_telegram_dashboard_stats(
+        self,
+        *,
+        telegram_chat_id: str,
+    ) -> dict[str, Any]:
+        if not self._bot_service_secret:
+            raise ApiClientError(
+                503,
+                "service_unavailable",
+                "Bot service secret is not configured.",
+            )
+        query = urlencode({"telegram_chat_id": telegram_chat_id})
+        payload = await self._request(
+            "GET",
+            f"/api/admin/telegram/stats?{query}",
+            headers={"X-Bot-Service-Secret": self._bot_service_secret},
+        )
+        data = payload.get("data")
+        if isinstance(data, dict):
+            return data
+        return payload
 
     async def link_telegram_account(
         self,

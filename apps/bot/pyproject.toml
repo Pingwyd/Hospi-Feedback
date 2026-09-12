@@ -9,6 +9,7 @@ description = "Hospi Feedback Telegram bot"
 requires-python = ">=3.11"
 dependencies = [
   "httpx>=0.28.0",
+  "matplotlib>=3.9.0",
   "pydantic-settings>=2.6.0",
   "python-telegram-bot>=21.10",
 ]

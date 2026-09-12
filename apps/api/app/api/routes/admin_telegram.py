@@ -1,11 +1,13 @@
 from datetime import UTC
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from app.api.deps import require_admin, require_bot_service_secret
+from app.api.deps import require_admin, require_bot_admin, require_bot_service_secret
 from app.core.admin_auth import AdminContext
 from app.core.settings import Settings, get_settings
+from app.services.admin_dashboard import get_dashboard_stats
 from app.services.telegram_admin import (
     generate_telegram_link_code,
     link_telegram_account,
@@ -55,3 +57,11 @@ def complete_telegram_link(
         settings=settings,
     )
     return LinkTelegramResponse(linked=True)
+
+
+@router.get("/api/admin/telegram/stats")
+def get_telegram_dashboard_stats(
+    admin: AdminContext = Depends(require_bot_admin),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, Any]:
+    return {"data": get_dashboard_stats(admin=admin, settings=settings)}
