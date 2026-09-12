@@ -167,21 +167,88 @@ def insert_attachment(
     report_id: str,
     storage_path: str,
     file_type: str,
+    message_id: str | None = None,
 ) -> dict[str, Any]:
     url = f"{supabase_url.rstrip('/')}/rest/v1/attachments"
+    body: dict[str, Any] = {
+        "report_id": report_id,
+        "storage_path": storage_path,
+        "file_type": file_type,
+    }
+    if message_id is not None:
+        body["message_id"] = message_id
     rows = _request_json(
         "POST",
         url,
         headers=_service_headers(service_role_key, prefer="return=representation"),
-        body={
-            "report_id": report_id,
-            "storage_path": storage_path,
-            "file_type": file_type,
-        },
+        body=body,
     )
     if not rows:
         raise ReportsStoreError("Insert into attachments returned no row.")
     return rows[0]
+
+
+def insert_followup_attachment_atomic(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+    content: str,
+    storage_path: str,
+    file_type: str,
+) -> dict[str, Any]:
+    """Message + attachment in one DB transaction via Postgres RPC."""
+    url = f"{supabase_url.rstrip('/')}/rest/v1/rpc/create_reporter_followup_attachment"
+    rows = _request_json(
+        "POST",
+        url,
+        headers=_service_headers(service_role_key),
+        body={
+            "p_report_id": report_id,
+            "p_content": content,
+            "p_storage_path": storage_path,
+            "p_file_type": file_type,
+        },
+    )
+    if not rows:
+        raise ReportsStoreError(
+            "RPC create_reporter_followup_attachment returned no row.",
+        )
+    return rows[0]
+
+
+def fetch_attachments_for_report(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_id: str,
+) -> list[dict[str, Any]]:
+    query = urllib.parse.urlencode(
+        {
+            "report_id": f"eq.{report_id}",
+            "select": "id,report_id,message_id,storage_path,file_type,uploaded_at",
+            "order": "uploaded_at.asc",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/attachments?{query}"
+    return _request_json("GET", url, headers=_service_headers(service_role_key))
+
+
+def fetch_attachment_by_id(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    attachment_id: str,
+) -> dict[str, Any] | None:
+    query = urllib.parse.urlencode(
+        {
+            "id": f"eq.{attachment_id}",
+            "select": "id,report_id,message_id,storage_path,file_type,uploaded_at",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/attachments?{query}"
+    rows = _request_json("GET", url, headers=_service_headers(service_role_key))
+    return rows[0] if rows else None
 
 
 def patch_report_status(

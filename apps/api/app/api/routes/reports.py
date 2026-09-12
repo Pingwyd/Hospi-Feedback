@@ -1,12 +1,13 @@
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import require_access_session
 from app.core.settings import Settings, get_settings
 from app.services.admin_ws import broadcast_admin_event
+from app.services.attachment_delivery import fetch_reporter_attachment_bytes
 from app.services.reporter_reports import (
     CreateReportInput,
     create_report,
@@ -35,11 +36,19 @@ class CreateReportResponse(BaseModel):
     created_at: str
 
 
+class AttachmentSummary(BaseModel):
+    id: str
+    file_type: str
+    uploaded_at: str
+    preview_url: str
+
+
 class MessageResponse(BaseModel):
     id: str
     sender_type: Literal["reporter", "admin"]
     content: str
     created_at: str
+    attachment: AttachmentSummary | None = None
 
 
 class TicketStatusResponse(BaseModel):
@@ -50,6 +59,7 @@ class TicketStatusResponse(BaseModel):
     severity: str | None
     created_at: str
     updated_at: str
+    report_attachments: list[AttachmentSummary] = Field(default_factory=list)
     messages: list[MessageResponse]
 
 
@@ -61,6 +71,8 @@ class AttachmentResponse(BaseModel):
     id: str
     file_type: str
     uploaded_at: str
+    message_id: str | None = None
+    preview_url: str | None = None
 
 
 # TODO(phase-3-followup): rate limit POST /api/reports
@@ -160,11 +172,42 @@ async def upload_ticket_attachment(
     _session: Annotated[dict[str, Any], Depends(require_access_session)],
     settings: Settings = Depends(get_settings),
     file: UploadFile = File(...),
+    link_to_thread: bool = Query(default=False),
 ) -> AttachmentResponse:
     file_bytes = await file.read()
     payload = upload_report_attachment(
         ticket_code,
         file_bytes,
         settings=settings,
+        link_to_thread=link_to_thread,
     )
+    if link_to_thread and payload.get("message_id"):
+        await broadcast_admin_event(
+            "new_message",
+            {
+                "report_id": payload.get("report_id"),
+                "message_id": payload["message_id"],
+                "sender_type": "reporter",
+                "created_at": payload["uploaded_at"],
+            },
+        )
     return AttachmentResponse(**payload)
+
+
+@router.get("/api/reports/ticket/{ticket_code}/attachments/{attachment_id}")
+def fetch_ticket_attachment(
+    ticket_code: str,
+    attachment_id: str,
+    _session: Annotated[dict[str, Any], Depends(require_access_session)],
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    content, content_type = fetch_reporter_attachment_bytes(
+        ticket_code=ticket_code,
+        attachment_id=attachment_id,
+        settings=settings,
+    )
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=60"},
+    )
