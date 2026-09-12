@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ import {
   type ReportStatus,
 } from "@/lib/api/admin-reports";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
+import { invalidateAdminReportLists } from "@/lib/query/admin-report-queries";
 import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
 
 const PHOTO_PLACEHOLDER = "Photo attached";
@@ -52,6 +54,7 @@ const STATUS_OPTIONS: { value: ReportStatus; permission: string }[] = [
 
 export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { profile, hasPermission, hasRole } = useAdminSession();
   const [detail, setDetail] = useState<ReportDetail | null>(null);
   const [team, setTeam] = useState<AdminTeamMember[]>([]);
@@ -73,6 +76,10 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     null,
   );
   const [busy, setBusy] = useState(false);
+
+  const refreshInboxLists = useCallback(async () => {
+    await invalidateAdminReportLists(queryClient);
+  }, [queryClient]);
 
   const loadDetail = useCallback(async () => {
     setLoading(true);
@@ -134,6 +141,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
       }
       setRecusalOpen(false);
       setPendingRecusal(null);
+      await refreshInboxLists();
       await loadDetail();
     } catch (err) {
       if (isRecusalConfirmationRequired(err)) {
@@ -169,6 +177,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setActionError(null);
     try {
       await assignReport(reportId, assignAdminId);
+      await refreshInboxLists();
       await loadDetail();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Assign failed.");
@@ -186,6 +195,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setActionError(null);
     try {
       await linkReportMember(reportId, linkAdminId);
+      await refreshInboxLists();
       await loadDetail();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Link failed.");
@@ -237,6 +247,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setActionError(null);
     try {
       await escalateReport(reportId, escalationContactId);
+      await refreshInboxLists();
       await loadDetail();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Escalation failed.");
@@ -254,6 +265,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setActionError(null);
     try {
       await deleteReport(reportId, deleteReason.trim());
+      await refreshInboxLists();
       router.push("/admin/reports");
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Delete failed.");
@@ -407,6 +419,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                         setActionError(null);
                         try {
                           await assignReport(reportId, profile.id);
+                          await refreshInboxLists();
                           await loadDetail();
                         } catch (err) {
                           setActionError(

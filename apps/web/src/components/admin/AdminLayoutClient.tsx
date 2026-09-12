@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { AdminSessionProvider, useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { QueryProvider } from "@/components/admin/QueryProvider";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import { getAdminAccessToken } from "@/lib/auth/admin-session";
 
@@ -49,8 +50,10 @@ function AdminLayoutInner({ children }: { children: ReactNode }) {
 
 export function AdminLayoutClient({ children }: { children: ReactNode }) {
   return (
-    <AdminSessionProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </AdminSessionProvider>
+    <QueryProvider>
+      <AdminSessionProvider>
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+      </AdminSessionProvider>
+    </QueryProvider>
   );
 }

@@ -67,8 +67,25 @@ export function useAdminWebSocket({
       active = false;
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
-      socket?.close();
+      if (!socket) {
+        return;
+      }
+      const currentSocket = socket;
+      socket = null;
+      currentSocket.onmessage = null;
+      currentSocket.onerror = null;
+      currentSocket.onclose = null;
+      if (currentSocket.readyState === WebSocket.CONNECTING) {
+        // Avoid closing while CONNECTING: React Strict Mode unmounts before
+        // the handshake finishes and the browser logs a noisy warning.
+        currentSocket.onopen = () => {
+          currentSocket.close();
+        };
+      } else if (currentSocket.readyState === WebSocket.OPEN) {
+        currentSocket.close();
+      }
     };
   }, [enabled]);
 }
