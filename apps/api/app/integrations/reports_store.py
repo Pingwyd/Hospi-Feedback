@@ -348,6 +348,38 @@ def list_reports(
     return _request_json("GET", url, headers=_service_headers(service_role_key))
 
 
+def fetch_category_names_for_reports(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    report_ids: list[str],
+) -> dict[str, list[str]]:
+    """Batch lookup: report_id -> sorted category names."""
+    if not report_ids:
+        return {}
+    in_list = ",".join(report_ids)
+    query = urllib.parse.urlencode(
+        {
+            "report_id": f"in.({in_list})",
+            "select": "report_id,categories(name)",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/report_categories?{query}"
+    rows = _request_json("GET", url, headers=_service_headers(service_role_key))
+    mapping: dict[str, list[str]] = {}
+    for row in rows:
+        report_id = str(row.get("report_id") or "")
+        category = row.get("categories")
+        if not report_id or not isinstance(category, dict):
+            continue
+        name = category.get("name")
+        if isinstance(name, str) and name.strip():
+            mapping.setdefault(report_id, []).append(name.strip())
+    for names in mapping.values():
+        names.sort()
+    return mapping
+
+
 def fetch_category_names_for_report(
     *,
     supabase_url: str,
