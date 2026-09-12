@@ -6,8 +6,14 @@ from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
 from bot.api_client import ApiClientError, HospiApiClient
-from bot.constants import ACCESS_CODE, HELP_TEXT, STATUS_TICKET_KEY
-from bot.handlers.menu import show_main_menu
+from bot.constants import (
+    ACCESS_CODE,
+    HELP_TEXT,
+    REPORT_DRAFT_KEY,
+    REPORT_FLOW_STATE_KEY,
+    STATUS_TICKET_KEY,
+)
+from bot.handlers.menu import prompt_expired_session_access_code, show_main_menu
 from bot.sessions import (
     clear_access_session,
     has_valid_access_session,
@@ -64,6 +70,17 @@ async def receive_access_code(
     return ConversationHandler.END
 
 
+async def menu_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int | None:
+    if update.message is None:
+        return ConversationHandler.END
+    if has_valid_access_session(context.user_data):
+        await show_main_menu(update, context)
+        return ConversationHandler.END
+    return await prompt_expired_session_access_code(update, context)
+
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.message is None:
         return
@@ -73,7 +90,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message is not None:
         await update.message.reply_text("Cancelled.")
-    context.user_data.pop("report_draft", None)
+    context.user_data.pop(REPORT_DRAFT_KEY, None)
+    context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
     context.user_data.pop(STATUS_TICKET_KEY, None)
     if has_valid_access_session(context.user_data):
         await show_main_menu(update, context)

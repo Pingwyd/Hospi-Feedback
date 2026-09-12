@@ -20,6 +20,9 @@ from bot.constants import (
     ACCESS_CODE,
     DELETE_CALLBACK_PREFIX,
     MENU_CALLBACK_PREFIX,
+    MENU_DISCARD_CONFIRM,
+    MENU_GO_CALLBACK_PREFIX,
+    MENU_KEEP_CALLBACK,
     REPORT_CALLBACK_PREFIX,
     REPORT_CONFIRM,
     REPORT_DESCRIPTION,
@@ -31,7 +34,11 @@ from bot.constants import (
 )
 from bot.handlers.admin import link_command, stats_command
 from bot.handlers.callbacks import delete_message_callback
-from bot.handlers.menu import handle_menu_callback
+from bot.handlers.menu import (
+    handle_menu_callback,
+    handle_menu_go_callback,
+    handle_menu_keep_callback,
+)
 from bot.handlers.report import (
     confirm_report,
     receive_description,
@@ -44,6 +51,7 @@ from bot.handlers.report import (
 from bot.handlers.start import (
     cancel_command,
     help_command,
+    menu_command,
     receive_access_code,
     start_command,
 )
@@ -74,6 +82,7 @@ def build_application(settings: BotSettings) -> Application:
     reporter_conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start_command),
+            CommandHandler("menu", menu_command),
             CallbackQueryHandler(
                 handle_menu_callback,
                 pattern=rf"^{MENU_CALLBACK_PREFIX}",
@@ -121,11 +130,34 @@ def build_application(settings: BotSettings) -> Application:
                     receive_status_code,
                 )
             ],
+            MENU_DISCARD_CONFIRM: [
+                CallbackQueryHandler(
+                    handle_menu_go_callback,
+                    pattern=rf"^{MENU_GO_CALLBACK_PREFIX}",
+                ),
+                CallbackQueryHandler(
+                    handle_menu_keep_callback,
+                    pattern=f"^{MENU_KEEP_CALLBACK}$",
+                ),
+            ],
         },
         fallbacks=[
             CommandHandler("cancel", cancel_command),
             CommandHandler("start", start_command),
+            CommandHandler("menu", menu_command),
             CommandHandler("help", help_command),
+            CallbackQueryHandler(
+                handle_menu_go_callback,
+                pattern=rf"^{MENU_GO_CALLBACK_PREFIX}",
+            ),
+            CallbackQueryHandler(
+                handle_menu_keep_callback,
+                pattern=f"^{MENU_KEEP_CALLBACK}$",
+            ),
+            CallbackQueryHandler(
+                handle_menu_callback,
+                pattern=rf"^{MENU_CALLBACK_PREFIX}",
+            ),
         ],
         allow_reentry=True,
     )
