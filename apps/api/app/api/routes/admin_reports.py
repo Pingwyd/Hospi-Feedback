@@ -22,6 +22,7 @@ from app.services.admin_reports import (
     mark_report_false,
     send_reporter_message_and_notify,
 )
+from app.services.attachment_delivery import fetch_admin_attachment_bytes
 
 router = APIRouter(tags=["admin-reports"])
 
@@ -238,6 +239,26 @@ def post_report_mark_false_route(
         confirm_recusal_override=body.confirm_recusal_override,
     )
     return {"data": updated}
+
+
+@router.get("/api/admin/reports/{report_id}/attachments/{attachment_id}")
+def fetch_admin_report_attachment(
+    report_id: str,
+    attachment_id: str,
+    admin: AdminContext = Depends(require_admin),
+    settings: Settings = Depends(get_settings),
+) -> Response:
+    content, content_type = fetch_admin_attachment_bytes(
+        report_id=report_id,
+        attachment_id=attachment_id,
+        admin=admin,
+        settings=settings,
+    )
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=60"},
+    )
 
 
 @router.delete(

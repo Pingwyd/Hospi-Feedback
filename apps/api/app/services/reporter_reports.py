@@ -20,19 +20,26 @@ from app.exceptions.reports import (
 )
 from app.integrations.reports_store import (
     count_attachments_for_report,
+    fetch_attachments_for_report,
     fetch_messages_for_report,
     fetch_report_by_ticket_hash,
     insert_attachment,
+    insert_followup_attachment_atomic,
     insert_report,
     insert_report_categories,
     insert_reporter_message,
 )
-from app.integrations.supabase_storage import upload_object
+from app.integrations.supabase_storage import delete_object, upload_object
+from app.services.attachment_delivery import (
+    build_ticket_attachment_views,
+    reporter_attachment_preview_path,
+)
 
 ReportType = Literal["complaint", "suggestion", "recognition"]
 ReportSource = Literal["web", "telegram"]
 Severity = Literal["low", "medium", "high"]
 ReporterLockedStatus = frozenset({"closed"})
+FOLLOWUP_PHOTO_MESSAGE = "Photo attached"
 
 
 @dataclass(frozen=True)
@@ -114,10 +121,27 @@ def _load_report_by_ticket_code(
 
 def get_ticket_status(ticket_code: str, *, settings: Settings) -> dict[str, Any]:
     report = _load_report_by_ticket_code(ticket_code, settings=settings)
-    messages = fetch_messages_for_report(
-        **_store_kwargs(settings),
-        report_id=str(report["id"]),
+    store = _store_kwargs(settings)
+    report_id = str(report["id"])
+    messages = fetch_messages_for_report(**store, report_id=report_id)
+    attachments = fetch_attachments_for_report(**store, report_id=report_id)
+    report_level, by_message_id = build_ticket_attachment_views(
+        ticket_code=ticket_code,
+        attachments=attachments,
     )
+    serialized_messages: list[dict[str, Any]] = []
+    for message in messages:
+        message_id = str(message["id"])
+        entry: dict[str, Any] = {
+            "id": message_id,
+            "sender_type": message["sender_type"],
+            "content": message["content"],
+            "created_at": message["created_at"],
+        }
+        linked = by_message_id.get(message_id)
+        if linked is not None:
+            entry["attachment"] = linked
+        serialized_messages.append(entry)
     return {
         "status": report["status"],
         "report_type": report["report_type"],
@@ -126,15 +150,8 @@ def get_ticket_status(ticket_code: str, *, settings: Settings) -> dict[str, Any]
         "severity": report.get("severity"),
         "created_at": report["created_at"],
         "updated_at": report["updated_at"],
-        "messages": [
-            {
-                "id": str(message["id"]),
-                "sender_type": message["sender_type"],
-                "content": message["content"],
-                "created_at": message["created_at"],
-            }
-            for message in messages
-        ],
+        "report_attachments": report_level,
+        "messages": serialized_messages,
     }
 
 
@@ -166,6 +183,7 @@ def upload_report_attachment(
     file_bytes: bytes,
     *,
     settings: Settings,
+    link_to_thread: bool = False,
 ) -> dict[str, Any]:
     report = _load_report_by_ticket_code(ticket_code, settings=settings)
     if str(report.get("status") or "") in ReporterLockedStatus:
@@ -185,17 +203,57 @@ def upload_report_attachment(
         content=stripped,
         content_type=mime,
     )
-    attachment = insert_attachment(
-        **_store_kwargs(settings),
-        report_id=report_id,
-        storage_path=storage_path,
-        file_type=mime,
-    )
-    return {
-        "id": str(attachment["id"]),
-        "file_type": str(attachment.get("file_type") or mime),
-        "uploaded_at": attachment["uploaded_at"],
-    }
+    store = _store_kwargs(settings)
+    try:
+        if link_to_thread:
+            row = insert_followup_attachment_atomic(
+                **store,
+                report_id=report_id,
+                content=FOLLOWUP_PHOTO_MESSAGE,
+                storage_path=storage_path,
+                file_type=mime,
+            )
+            message_id = str(row["message_id"])
+            attachment_row_id = str(row["attachment_id"])
+            uploaded_at = str(row["attachment_uploaded_at"])
+            preview_url = reporter_attachment_preview_path(
+                ticket_code,
+                attachment_row_id,
+            )
+            return {
+                "report_id": report_id,
+                "id": attachment_row_id,
+                "file_type": str(row.get("file_type") or mime),
+                "uploaded_at": uploaded_at,
+                "message_id": message_id,
+                "preview_url": preview_url,
+            }
+        attachment = insert_attachment(
+            **store,
+            report_id=report_id,
+            storage_path=storage_path,
+            file_type=mime,
+        )
+        attachment_row_id = str(attachment["id"])
+        return {
+            "report_id": report_id,
+            "id": attachment_row_id,
+            "file_type": str(attachment.get("file_type") or mime),
+            "uploaded_at": attachment["uploaded_at"],
+            "message_id": None,
+            "preview_url": reporter_attachment_preview_path(
+                ticket_code,
+                attachment_row_id,
+            ),
+        }
+    except Exception:
+        delete_object(
+            supabase_url=settings.supabase_url,
+            service_role_key=settings.supabase_service_role_key,
+            bucket=settings.report_attachments_bucket,
+            object_path=storage_path,
+        )
+        raise
 
 
 def count_report_attachments(report_id: str, *, settings: Settings) -> int:

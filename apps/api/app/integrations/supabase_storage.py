@@ -20,6 +20,10 @@ class StorageDeleteError(StorageError):
     """Supabase Storage delete failed."""
 
 
+class StorageDownloadError(StorageError):
+    """Supabase Storage download failed."""
+
+
 def upload_object(
     *,
     supabase_url: str,
@@ -59,6 +63,37 @@ def upload_object(
     except urllib.error.URLError as exc:
         raise StorageUploadError(
             "Storage upload could not connect.",
+            context={"reason": str(exc.reason)},
+        ) from exc
+
+
+def download_object(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    bucket: str,
+    object_path: str,
+) -> tuple[bytes, str | None]:
+    encoded_path = object_path.lstrip("/")
+    url = f"{supabase_url.rstrip('/')}/storage/v1/object/{bucket}/{encoded_path}"
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+    }
+    req = urllib.request.Request(url, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            content_type = response.headers.get("Content-Type")
+            return response.read(), content_type
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise StorageDownloadError(
+            f"Storage download failed with HTTP {exc.code}.",
+            context={"status": exc.code, "detail": detail},
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise StorageDownloadError(
+            "Storage download could not connect.",
             context={"reason": str(exc.reason)},
         ) from exc
 

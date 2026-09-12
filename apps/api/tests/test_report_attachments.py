@@ -67,6 +67,7 @@ def test_upload_attachment_happy_path(
         "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
         "file_type": "image/png",
         "uploaded_at": UPLOADED_AT,
+        "message_id": None,
     }
     _session_cookie(client)
     response = client.post(
@@ -108,6 +109,7 @@ def test_attachment_ownership_boundary_wrong_code_is_404(
             "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
             "file_type": "image/png",
             "uploaded_at": UPLOADED_AT,
+            "message_id": None,
         }
 
     fetch_mock.side_effect = fetch_side_effect

@@ -12,6 +12,7 @@ from app.exceptions.admin_reports import (
 )
 from app.exceptions.reports import ReportNotFoundError
 from app.integrations.reports_store import (
+    fetch_attachments_for_report,
     fetch_internal_notes_for_report,
     fetch_messages_for_report,
     fetch_report_by_id,
@@ -22,6 +23,7 @@ from app.integrations.reports_store import (
     patch_report_fields,
 )
 from app.services.admin_ws import broadcast_admin_event
+from app.services.attachment_delivery import build_admin_attachment_views
 from app.services.audit_log import AuditAction, write_audit_log
 from app.services.escalation_export import generate_escalation_export
 from app.services.recusal_enforcement import (
@@ -95,9 +97,29 @@ def get_admin_report(
     _require_permission(admin, "view")
     report = _load_report_or_raise(report_id, settings=settings)
     store = _store_kwargs(settings)
+    messages = fetch_messages_for_report(**store, report_id=report_id)
+    attachments = fetch_attachments_for_report(**store, report_id=report_id)
+    report_level, by_message_id = build_admin_attachment_views(
+        report_id=report_id,
+        attachments=attachments,
+    )
+    serialized_messages: list[dict[str, Any]] = []
+    for message in messages:
+        message_row_id = str(message["id"])
+        entry: dict[str, Any] = {
+            "id": message_row_id,
+            "sender_type": message["sender_type"],
+            "content": message["content"],
+            "created_at": message["created_at"],
+        }
+        linked = by_message_id.get(message_row_id)
+        if linked is not None:
+            entry["attachment"] = linked
+        serialized_messages.append(entry)
     return {
         "report": report,
-        "messages": fetch_messages_for_report(**store, report_id=report_id),
+        "report_attachments": report_level,
+        "messages": serialized_messages,
         "internal_notes": fetch_internal_notes_for_report(**store, report_id=report_id),
     }
 
