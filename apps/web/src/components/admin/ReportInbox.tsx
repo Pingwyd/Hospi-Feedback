@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Filter, Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import { ApiError } from "@/lib/api/admin-fetch";
-import {
-  listAdminReports,
-  type ReportSummary,
-} from "@/lib/api/admin-reports";
+import { useAdminReportsList } from "@/lib/hooks/useAdminReportsList";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
+import { useReportInboxUrlState } from "@/lib/hooks/useReportInboxUrlState";
+import { invalidateAdminReportLists } from "@/lib/query/admin-report-queries";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -39,41 +39,24 @@ function statusBadgeClass(status: string | null | undefined): string {
 }
 
 export function ReportInbox() {
-  const [reports, setReports] = useState<ReportSummary[]>([]);
-  const [status, setStatus] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [appliedKeyword, setAppliedKeyword] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { status, keyword, keywordDraft, setKeywordDraft, setStatus } =
+    useReportInboxUrlState();
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
 
-  const loadReports = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await listAdminReports({
-        status: status || undefined,
-        keyword: appliedKeyword || undefined,
-        limit: 100,
-      });
-      setReports(rows);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load reports.");
-    } finally {
-      setLoading(false);
-    }
-  }, [status, appliedKeyword]);
-
-  useEffect(() => {
-    void loadReports();
-  }, [loadReports]);
+  const {
+    data: reports = [],
+    isPending,
+    isFetching,
+    error,
+  } = useAdminReportsList({ status, keyword, limit: 100 });
 
   useAdminWebSocket({
     enabled: true,
     onEvent: (event) => {
       if (event.event === "new_report") {
         setLiveNotice("New report received.");
-        void loadReports();
+        void invalidateAdminReportLists(queryClient);
       }
       if (event.event === "new_message") {
         setLiveNotice("New message on a report.");
@@ -81,10 +64,27 @@ export function ReportInbox() {
     },
   });
 
-  function handleSearchSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAppliedKeyword(keyword.trim());
-  }
+  const loading = isPending || (isFetching && reports.length === 0);
+  const errorMessage =
+    error instanceof ApiError
+      ? error.message
+      : error
+        ? "Could not load reports."
+        : null;
+
+  const resultsAnnouncement = useMemo(() => {
+    if (loading) {
+      return "Loading reports.";
+    }
+    if (errorMessage) {
+      return "Could not load reports.";
+    }
+    if (reports.length === 0) {
+      return "No reports match the current filters.";
+    }
+    const noun = reports.length === 1 ? "report" : "reports";
+    return `${reports.length} ${noun} shown.`;
+  }, [errorMessage, loading, reports.length]);
 
   return (
     <div className="space-y-6">
@@ -101,26 +101,27 @@ export function ReportInbox() {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-ink/10 bg-white/60 p-4 shadow-sm">
-        <form
-          onSubmit={handleSearchSubmit}
-          className="grid gap-4 md:grid-cols-[1fr_auto_auto]"
-        >
+      <div
+        role="search"
+        className="rounded-2xl border border-ink/10 bg-white/60 p-4 shadow-sm"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Search size={16} />
+              <Search size={16} aria-hidden="true" />
               Keyword
             </span>
             <input
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              type="search"
+              value={keywordDraft}
+              onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder="Search description or member name"
               className="w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
             />
           </label>
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Filter size={16} />
+              <Filter size={16} aria-hidden="true" />
               Status
             </span>
             <select
@@ -135,25 +136,21 @@ export function ReportInbox() {
               ))}
             </select>
           </label>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-paper hover:bg-ink/90"
-            >
-              Apply filters
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
+
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {resultsAnnouncement}
+      </p>
 
       {loading ? (
         <SkeletonCard />
-      ) : error ? (
+      ) : errorMessage ? (
         <div
           role="alert"
           className="rounded-2xl border border-brass/30 bg-brass/10 p-4 text-sm text-ink"
         >
-          {error}
+          {errorMessage}
         </div>
       ) : reports.length === 0 ? (
         <div className="rounded-2xl border border-ink/10 bg-white/60 p-8 text-center text-sm text-ink/60">
