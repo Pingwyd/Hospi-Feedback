@@ -1,9 +1,41 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
+
+import { AdminUsersPanel } from "./_components/AdminUsersPanel";
+import { CategoriesPanel } from "./_components/CategoriesPanel";
+import { EscalationContactsPanel } from "./_components/EscalationContactsPanel";
+
+type SettingsTab = "categories" | "escalation-contacts" | "admins";
 
 export default function AdminSettingsPage() {
   const { hasPermission } = useAdminSession();
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "categories" as const, label: "Categories", visible: true },
+        {
+          id: "escalation-contacts" as const,
+          label: "Escalation contacts",
+          visible: true,
+        },
+        {
+          id: "admins" as const,
+          label: "Admin users",
+          visible: hasPermission("manage_admins"),
+        },
+      ].filter((tab) => tab.visible),
+    [hasPermission],
+  );
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>("categories");
+
+  const resolvedTab = tabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : tabs[0]?.id ?? "categories";
 
   return (
     <div className="space-y-6">
@@ -14,54 +46,36 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
-          <h2 className="font-semibold text-ink">Categories</h2>
-          <p className="mt-2 text-sm text-ink/70">
-            Manage report categories used during triage and filtering.
-          </p>
-          {hasPermission("manage_categories") ? (
-            <p className="mt-4 text-sm font-medium text-sage">
-              API ready. Full CRUD UI lands in the next settings pass.
-            </p>
-          ) : (
-            <p className="mt-4 text-sm text-ink/50">
-              Hidden: requires manage_categories permission.
-            </p>
-          )}
-        </section>
+      <div
+        role="tablist"
+        aria-label="Settings sections"
+        className="flex flex-wrap gap-2"
+      >
+        {tabs.map((tab) => {
+          const selected = resolvedTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                selected
+                  ? "bg-ink text-paper"
+                  : "bg-white/70 text-ink/70 ring-1 ring-ink/10 hover:text-ink"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
-          <h2 className="font-semibold text-ink">Escalation contacts</h2>
-          <p className="mt-2 text-sm text-ink/70">
-            Maintain the contact list used when escalating a report.
-          </p>
-          {hasPermission("manage_escalation_contacts") ? (
-            <p className="mt-4 text-sm font-medium text-sage">
-              API ready. Full CRUD UI lands in the next settings pass.
-            </p>
-          ) : (
-            <p className="mt-4 text-sm text-ink/50">
-              Hidden: requires manage_escalation_contacts permission.
-            </p>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-ink/10 bg-white/60 p-6 shadow-sm">
-          <h2 className="font-semibold text-ink">Admin users</h2>
-          <p className="mt-2 text-sm text-ink/70">
-            Create admins, adjust permissions, and deactivate accounts.
-          </p>
-          {hasPermission("manage_admins") ? (
-            <p className="mt-4 text-sm font-medium text-sage">
-              API ready. Full CRUD UI lands in the next settings pass.
-            </p>
-          ) : (
-            <p className="mt-4 text-sm text-ink/50">
-              Hidden: requires manage_admins permission.
-            </p>
-          )}
-        </section>
+      <div role="tabpanel">
+        {resolvedTab === "categories" ? <CategoriesPanel /> : null}
+        {resolvedTab === "escalation-contacts" ? <EscalationContactsPanel /> : null}
+        {resolvedTab === "admins" ? <AdminUsersPanel /> : null}
       </div>
     </div>
   );
