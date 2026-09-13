@@ -20,3 +20,12 @@ export async function checkAccessSession(): Promise<boolean> {
     return false;
   }
 }
+
+export type WsBootstrapResponse = {
+  access_token: string;
+  expires_at: string;
+};
+
+export async function fetchWsBootstrap(): Promise<WsBootstrapResponse> {
+  return apiFetch<WsBootstrapResponse>("/api/access/ws-bootstrap");
+}
