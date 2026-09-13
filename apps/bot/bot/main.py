@@ -36,6 +36,7 @@ from bot.constants import (
 )
 from bot.handlers.admin import link_command, stats_command
 from bot.handlers.callbacks import delete_message_callback
+from bot.handlers.idle_fallback import idle_unrecognized_text
 from bot.handlers.menu import (
     handle_menu_callback,
     handle_menu_go_callback,
@@ -198,6 +199,13 @@ def build_application(settings: BotSettings) -> Application:
             status_chat_message,
         ),
         group=1,
+    )
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND,
+            idle_unrecognized_text,
+        ),
+        group=2,
     )
     return application
 

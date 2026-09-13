@@ -24,6 +24,7 @@ from bot.handlers.status_attachments import (
 )
 from bot.hashing import hash_telegram_identifier
 from bot.messages import send_with_delete_button
+from bot.session_flags import clear_awaiting_status_code
 from bot.sessions import access_token
 
 TICKET_CODE_PATTERN = re.compile(rf"^[{TICKET_CODE_ALPHABET}]{{{TICKET_CODE_LENGTH}}}$")
@@ -180,6 +181,7 @@ async def load_ticket(
                 )
         return False
     context.user_data[STATUS_TICKET_KEY] = ticket_code
+    clear_awaiting_status_code(context.user_data)
     body = format_ticket_status(payload)
     await send_with_delete_button(
         update,

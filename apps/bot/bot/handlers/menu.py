@@ -33,6 +33,12 @@ from bot.keyboards import (
     severity_keyboard,
     skip_keyboard,
 )
+from bot.session_flags import (
+    clear_awaiting_access_code,
+    clear_awaiting_status_code,
+    set_awaiting_access_code,
+    set_awaiting_status_code,
+)
 from bot.sessions import clear_access_session, has_valid_access_session
 
 _REPORT_TYPE_ACTIONS = frozenset({"complaint", "suggestion", "recognition"})
@@ -53,6 +59,8 @@ def _clear_stale_session_data(user_data: dict[str, Any]) -> None:
     user_data.pop(REPORT_DRAFT_KEY, None)
     user_data.pop(REPORT_FLOW_STATE_KEY, None)
     user_data.pop(STATUS_TICKET_KEY, None)
+    clear_awaiting_status_code(user_data)
+    clear_awaiting_access_code(user_data)
 
 
 async def prompt_expired_session_access_code(
@@ -66,6 +74,7 @@ async def prompt_expired_session_access_code(
         target = update.message
     _clear_stale_session_data(context.user_data)
     context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
+    set_awaiting_access_code(context.user_data)
     if target is not None:
         await target.reply_text(
             SESSION_EXPIRED_ACCESS_CODE_MSG,
@@ -132,12 +141,14 @@ async def _route_menu_action(
         return ConversationHandler.END
     if action == "status":
         context.user_data.pop(STATUS_TICKET_KEY, None)
+        set_awaiting_status_code(context.user_data)
         await message.reply_text(
             "Send your 8-character ticket code, or use /status <code>."
         )
         return STATUS_AWAIT_CODE
     if action in _REPORT_TYPE_ACTIONS:
         context.user_data.pop(STATUS_TICKET_KEY, None)
+        clear_awaiting_status_code(context.user_data)
         context.user_data[REPORT_DRAFT_KEY] = {"report_type": action}
         context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_DESCRIPTION
         await message.reply_text(
