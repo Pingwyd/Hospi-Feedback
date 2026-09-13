@@ -32,6 +32,7 @@ from app.services.recusal_enforcement import (
     enforce_recusal_for_mutation,
 )
 from app.services.report_archive import archive_report
+from app.services.reporter_ws import broadcast_reporter_event
 
 
 def _store_kwargs(settings: Settings) -> dict[str, str]:
@@ -301,10 +302,17 @@ async def send_reporter_message_and_notify(
         admin=admin,
         settings=settings,
     )
-    await broadcast_admin_event(
+    admin_payload = {
+        "report_id": report_id,
+        "message_id": message["id"],
+        "sender_type": "admin",
+        "created_at": message["created_at"],
+    }
+    await broadcast_admin_event("new_message", admin_payload)
+    await broadcast_reporter_event(
+        report_id,
         "new_message",
         {
-            "report_id": report_id,
             "message_id": message["id"],
             "sender_type": "admin",
             "created_at": message["created_at"],
