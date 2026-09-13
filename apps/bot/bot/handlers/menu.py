@@ -33,6 +33,7 @@ from bot.keyboards import (
     severity_keyboard,
     skip_keyboard,
 )
+from bot.live_relay import clear_status_ticket_session
 from bot.session_flags import (
     clear_awaiting_access_code,
     clear_awaiting_status_code,
@@ -54,11 +55,19 @@ def draft_is_in_progress(user_data: dict[str, Any]) -> bool:
     return bool(_DRAFT_PROGRESS_KEYS & draft.keys())
 
 
-def _clear_stale_session_data(user_data: dict[str, Any]) -> None:
+def _clear_stale_session_data(
+    user_data: dict[str, Any],
+    *,
+    application: Any | None = None,
+    chat_id: int | None = None,
+) -> None:
     clear_access_session(user_data)
     user_data.pop(REPORT_DRAFT_KEY, None)
     user_data.pop(REPORT_FLOW_STATE_KEY, None)
-    user_data.pop(STATUS_TICKET_KEY, None)
+    if application is not None:
+        clear_status_ticket_session(user_data, application, chat_id)
+    else:
+        user_data.pop(STATUS_TICKET_KEY, None)
     clear_awaiting_status_code(user_data)
     clear_awaiting_access_code(user_data)
 
@@ -72,7 +81,12 @@ async def prompt_expired_session_access_code(
         target = query.message
     else:
         target = update.message
-    _clear_stale_session_data(context.user_data)
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    _clear_stale_session_data(
+        context.user_data,
+        application=context.application,
+        chat_id=chat_id,
+    )
     context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
     set_awaiting_access_code(context.user_data)
     if target is not None:
@@ -140,14 +154,22 @@ async def _route_menu_action(
         await message.reply_text(HELP_TEXT)
         return ConversationHandler.END
     if action == "status":
-        context.user_data.pop(STATUS_TICKET_KEY, None)
+        clear_status_ticket_session(
+            context.user_data,
+            context.application,
+            message.chat.id,
+        )
         set_awaiting_status_code(context.user_data)
         await message.reply_text(
             "Send your 8-character ticket code, or use /status <code>."
         )
         return STATUS_AWAIT_CODE
     if action in _REPORT_TYPE_ACTIONS:
-        context.user_data.pop(STATUS_TICKET_KEY, None)
+        clear_status_ticket_session(
+            context.user_data,
+            context.application,
+            message.chat.id,
+        )
         clear_awaiting_status_code(context.user_data)
         context.user_data[REPORT_DRAFT_KEY] = {"report_type": action}
         context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_DESCRIPTION
