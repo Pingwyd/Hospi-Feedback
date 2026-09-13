@@ -64,6 +64,7 @@ from bot.handlers.status import (
     status_chat_photo,
     status_command,
 )
+from bot.live_relay import LIVE_RELAY_INTERVAL_SECONDS, poll_status_live_relays
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -78,8 +79,32 @@ _PERSISTENT_KEYBOARD_TEXT_FILTER = filters.Regex(
 )
 
 
+async def _start_live_relay_job(application: Application) -> None:
+    if application.job_queue is None:
+        logger.warning(
+            "JobQueue unavailable; status live relay disabled. "
+            "Install python-telegram-bot[job-queue]."
+        )
+        return
+    application.job_queue.run_repeating(
+        poll_status_live_relays,
+        interval=LIVE_RELAY_INTERVAL_SECONDS,
+        first=LIVE_RELAY_INTERVAL_SECONDS,
+        name="status_live_relay_poll",
+    )
+    logger.info(
+        "Status live relay polling every %s seconds",
+        LIVE_RELAY_INTERVAL_SECONDS,
+    )
+
+
 def build_application(settings: BotSettings) -> Application:
-    application = Application.builder().token(settings.telegram_bot_token).build()
+    application = (
+        Application.builder()
+        .token(settings.telegram_bot_token)
+        .post_init(_start_live_relay_job)
+        .build()
+    )
     application.bot_data["api_client"] = HospiApiClient(
         base_url=settings.api_base_url,
         bot_service_secret=settings.bot_service_secret,

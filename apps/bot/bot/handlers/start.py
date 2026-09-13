@@ -12,10 +12,10 @@ from bot.constants import (
     PERSISTENT_KEYBOARD_ATTACHED_KEY,
     REPORT_DRAFT_KEY,
     REPORT_FLOW_STATE_KEY,
-    STATUS_TICKET_KEY,
 )
 from bot.handlers.menu import prompt_expired_session_access_code, show_main_menu
 from bot.keyboards import remove_persistent_keyboard
+from bot.live_relay import clear_status_ticket_session
 from bot.persistent_keyboard_lifecycle import (
     attach_persistent_keyboard,
     ensure_persistent_keyboard,
@@ -32,7 +32,11 @@ async def start_command(
 ) -> int | None:
     if update.message is None:
         return ConversationHandler.END
-    context.user_data.pop(STATUS_TICKET_KEY, None)
+    clear_status_ticket_session(
+        context.user_data,
+        context.application,
+        update.effective_chat.id if update.effective_chat else None,
+    )
     if has_valid_access_session(context.user_data):
         await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
@@ -73,7 +77,11 @@ async def receive_access_code(
         token=token,
         expires_at=expires_at,
     )
-    context.user_data.pop(STATUS_TICKET_KEY, None)
+    clear_status_ticket_session(
+        context.user_data,
+        context.application,
+        update.effective_chat.id if update.effective_chat else None,
+    )
     await attach_persistent_keyboard(update.message, context.user_data)
     await show_main_menu(update, context)
     return ConversationHandler.END
@@ -102,7 +110,11 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Cancelled.")
     context.user_data.pop(REPORT_DRAFT_KEY, None)
     context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
-    context.user_data.pop(STATUS_TICKET_KEY, None)
+    clear_status_ticket_session(
+        context.user_data,
+        context.application,
+        update.effective_chat.id if update.effective_chat else None,
+    )
     if has_valid_access_session(context.user_data):
         await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)

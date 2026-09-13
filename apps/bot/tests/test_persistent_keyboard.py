@@ -17,7 +17,10 @@ from bot.constants import (
     STATUS_TICKET_KEY,
 )
 from bot.handlers.menu import handle_menu_callback
-from bot.handlers.persistent_keyboard import try_handle_persistent_keyboard
+from bot.handlers.persistent_keyboard import (
+    handle_persistent_keyboard_message,
+    try_handle_persistent_keyboard,
+)
 from bot.handlers.report import receive_description, receive_member_text
 from bot.handlers.status import receive_status_code, status_chat_message
 from bot.keyboards import persistent_reply_keyboard, remove_persistent_keyboard
@@ -209,7 +212,37 @@ async def test_receive_status_code_intercepts_menu_before_ticket_validation() ->
 
 
 @pytest.mark.asyncio
-async def test_status_chat_message_intercepts_exact_cancel_label() -> None:
+async def test_menu_with_active_ticket_does_not_double_fire_show_main_menu() -> None:
+    """Reproduces duplicate-menu bug: group 0 + group 1 both calling menu_command."""
+    update = MagicMock()
+    update.message = AsyncMock()
+    update.message.text = PERSISTENT_MENU_LABEL
+    update.callback_query = None
+    update.effective_chat = MagicMock(id=99)
+    context = MagicMock()
+    context.user_data = {STATUS_TICKET_KEY: "ABCD2345"}
+    _store_valid_session(context.user_data)
+
+    menu_calls = 0
+
+    async def _counting_menu(*args, **kwargs):
+        nonlocal menu_calls
+        menu_calls += 1
+        return ConversationHandler.END
+
+    with patch(
+        "bot.handlers.persistent_keyboard.menu_command",
+        new=AsyncMock(side_effect=_counting_menu),
+    ):
+        await handle_persistent_keyboard_message(update, context)
+        await status_chat_message(update, context)
+
+    assert menu_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_status_chat_message_skips_menu_cancel_with_active_ticket() -> None:
+    """Group 1 must not re-handle Menu/Cancel (group 0 owns those labels)."""
     update = MagicMock()
     update.message = AsyncMock()
     update.message.text = PERSISTENT_CANCEL_LABEL
@@ -218,11 +251,11 @@ async def test_status_chat_message_intercepts_exact_cancel_label() -> None:
 
     with patch(
         "bot.handlers.status.try_handle_persistent_keyboard",
-        new=AsyncMock(return_value=ConversationHandler.END),
+        new=AsyncMock(),
     ) as intercept:
         await status_chat_message(update, context)
 
-    intercept.assert_awaited_once_with(update, context)
+    intercept.assert_not_called()
 
 
 @pytest.mark.asyncio

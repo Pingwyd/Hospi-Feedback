@@ -51,8 +51,9 @@ PRIVACY_NOTICE = (
     "never shown to admins and never linked to report content.\n"
     "- Admins who link Telegram store an encrypted chat id for pushes. That "
     "is separate from reporter anonymity.\n"
-    "- If your bot session ends, admin replies will not push to you. Run "
-    "/status with your ticket code to read replies."
+    "- While your session is open, admin replies on a ticket arrive here "
+    "automatically. If your bot session ends, those replies will not push "
+    "to you. Run /status with your ticket code to read them."
 )
 
 HELP_TEXT = (
@@ -61,6 +62,7 @@ HELP_TEXT = (
     "/start - enter access code and open the main menu\n"
     "/menu - show the main menu again\n"
     "/status <code> - check a ticket and chat with admins\n"
+    "While a /status session is active, admin replies arrive automatically.\n"
     "/cancel - stop the current flow\n"
     "/help - show this message\n\n"
     "Save your ticket code somewhere safe. Anyone with the code can read "
@@ -68,6 +70,7 @@ HELP_TEXT = (
 )
 
 STATUS_ASYNC_NOTE = (
-    "Note: if your session ends, new admin replies will not push here. "
-    "Run /status with your ticket code again to read them."
+    "While your session is open, new admin replies arrive here "
+    "automatically. If your session ends, run /status with your ticket code "
+    "again to read them."
 )

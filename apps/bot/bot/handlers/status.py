@@ -10,6 +10,8 @@ from telegram.ext import ContextTypes, ConversationHandler
 
 from bot.api_client import ApiClientError, HospiApiClient
 from bot.constants import (
+    PERSISTENT_CANCEL_LABEL,
+    PERSISTENT_MENU_LABEL,
     STATUS_ASYNC_NOTE,
     STATUS_AWAIT_CODE,
     STATUS_TICKET_KEY,
@@ -23,6 +25,11 @@ from bot.handlers.status_attachments import (
     iter_status_attachment_previews,
 )
 from bot.hashing import hash_telegram_identifier
+from bot.live_relay import (
+    clear_status_ticket_session,
+    collect_message_ids,
+    register_live_relay,
+)
 from bot.messages import send_with_delete_button
 from bot.sessions import access_token
 
@@ -34,6 +41,14 @@ def normalize_ticket_code(raw: str) -> str | None:
     if TICKET_CODE_PATTERN.fullmatch(candidate):
         return candidate
     return None
+
+
+def format_status_message_line(item: dict) -> str:
+    sender = item.get("sender_type", "unknown")
+    content = item.get("content", "")
+    if item.get("attachment") and content == PHOTO_PLACEHOLDER:
+        return f"- ({sender}) [photo attached below]"
+    return f"- ({sender}) {content}"
 
 
 def format_ticket_status(payload: dict) -> str:
@@ -53,17 +68,12 @@ def format_ticket_status(payload: dict) -> str:
         lines.append("")
         lines.append("Messages:")
         for item in messages:
-            sender = item.get("sender_type", "unknown")
-            content = item.get("content", "")
-            if item.get("attachment") and content == PHOTO_PLACEHOLDER:
-                lines.append(f"- ({sender}) [photo attached below]")
-            else:
-                lines.append(f"- ({sender}) {content}")
+            lines.append(format_status_message_line(item))
     lines.append("")
     lines.append(STATUS_ASYNC_NOTE)
     lines.append(
-        "Reply in this chat to send a message on this ticket "
-        "while your session is active."
+        "Reply in this chat to send a message on this ticket. "
+        "Admin replies arrive automatically while this session is open."
     )
     return "\n".join(lines)
 
@@ -147,6 +157,32 @@ async def _send_status_attachment_previews(
         )
 
 
+async def deliver_live_admin_messages(
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    chat_id: int,
+    api: HospiApiClient,
+    token: str,
+    messages: list[dict],
+) -> None:
+    for message in messages:
+        attachment = message.get("attachment")
+        if not isinstance(attachment, dict):
+            continue
+        preview_url = attachment.get("preview_url")
+        if not isinstance(preview_url, str) or not preview_url.strip():
+            continue
+        sender = str(message.get("sender_type") or "admin")
+        await _send_attachment_photo(
+            chat_id,
+            context,
+            api=api,
+            token=token,
+            caption=f"Follow-up photo ({sender})",
+            preview_url=preview_url,
+        )
+
+
 async def load_ticket(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -180,6 +216,14 @@ async def load_ticket(
                 )
         return False
     context.user_data[STATUS_TICKET_KEY] = ticket_code
+    chat = update.effective_chat
+    if chat is not None:
+        register_live_relay(
+            context.application,
+            chat_id=chat.id,
+            ticket_code=ticket_code,
+            known_message_ids=collect_message_ids(payload),
+        )
     body = format_ticket_status(payload)
     await send_with_delete_button(
         update,
@@ -235,11 +279,12 @@ async def status_chat_message(
 ) -> None:
     if update.message is None or update.message.text is None:
         return
+    text = update.message.text.strip()
+    if text in (PERSISTENT_MENU_LABEL, PERSISTENT_CANCEL_LABEL):
+        # ConversationHandler (group 0) already routes Menu/Cancel labels.
+        return
     ticket_code = context.user_data.get(STATUS_TICKET_KEY)
     if not isinstance(ticket_code, str):
-        return
-    handled = await try_handle_persistent_keyboard(update, context)
-    if handled is not False:
         return
     if not await ensure_session_or_prompt(update, context):
         return
@@ -261,7 +306,11 @@ async def status_chat_message(
             )
         elif exc.status_code == 409:
             await update.message.reply_text("This ticket is closed.")
-            context.user_data.pop(STATUS_TICKET_KEY, None)
+            clear_status_ticket_session(
+                context.user_data,
+                context.application,
+                update.effective_chat.id if update.effective_chat else None,
+            )
         else:
             await update.message.reply_text(
                 "Could not send your message. Try again in a moment."
@@ -302,7 +351,11 @@ async def status_chat_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
         elif exc.status_code == 409:
             await update.message.reply_text("This ticket is closed.")
-            context.user_data.pop(STATUS_TICKET_KEY, None)
+            clear_status_ticket_session(
+                context.user_data,
+                context.application,
+                update.effective_chat.id if update.effective_chat else None,
+            )
         else:
             await update.message.reply_text(
                 "Could not upload your photo. Try again in a moment."
