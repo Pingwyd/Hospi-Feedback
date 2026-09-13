@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ImagePlus, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, ImagePlus, RefreshCw, Send, Wifi, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -9,11 +9,13 @@ import { ApiError } from "@/lib/api/client";
 import { checkAccessSession } from "@/lib/api/access";
 import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
 import {
+  type Message,
   type TicketStatusResponse,
   fetchTicketStatus,
   postReporterMessage,
   uploadAttachment,
 } from "@/lib/api/reports";
+import { useReporterTicketWebSocket } from "@/lib/hooks/useReporterTicketWebSocket";
 
 const PHOTO_PLACEHOLDER = "Photo attached";
 
@@ -23,6 +25,62 @@ type StatusPanelProps = {
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ");
+}
+
+function messagesMatch(existing: Message, incoming: Message): boolean {
+  return (
+    existing.content === incoming.content &&
+    existing.sender_type === incoming.sender_type &&
+    existing.created_at === incoming.created_at &&
+    existing.attachment?.id === incoming.attachment?.id &&
+    existing.attachment?.preview_url === incoming.attachment?.preview_url
+  );
+}
+
+function mergeTicketStatus(
+  current: TicketStatusResponse,
+  fresh: TicketStatusResponse,
+): TicketStatusResponse {
+  const freshById = new Map(fresh.messages.map((message) => [message.id, message]));
+  const mergedMessages: Message[] = [];
+  let messagesChanged = false;
+
+  for (const existing of current.messages) {
+    const incoming = freshById.get(existing.id);
+    if (!incoming) {
+      messagesChanged = true;
+      continue;
+    }
+    freshById.delete(existing.id);
+    if (messagesMatch(existing, incoming)) {
+      mergedMessages.push(existing);
+    } else {
+      mergedMessages.push(incoming);
+      messagesChanged = true;
+    }
+  }
+
+  for (const incoming of freshById.values()) {
+    mergedMessages.push(incoming);
+    messagesChanged = true;
+  }
+
+  const statusChanged =
+    current.status !== fresh.status ||
+    current.updated_at !== fresh.updated_at ||
+    current.severity !== fresh.severity;
+
+  if (!messagesChanged && !statusChanged) {
+    return current;
+  }
+
+  return {
+    ...current,
+    status: fresh.status,
+    updated_at: fresh.updated_at,
+    severity: fresh.severity,
+    messages: mergedMessages,
+  };
 }
 
 export function StatusPanel({ ticketCode }: StatusPanelProps) {
@@ -36,13 +94,19 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const messageIdsRef = useRef<Set<string>>(new Set());
 
-  const loadStatus = useCallback(async () => {
-    setLoading(true);
+  const loadStatus = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const payload = await fetchTicketStatus(ticketCode);
-      setData(payload);
+      setData((current) =>
+        silent && current ? mergeTicketStatus(current, payload) : payload,
+      );
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setError("No report found for that ticket code.");
@@ -53,7 +117,9 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
       }
       setData(null);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [ticketCode]);
 
@@ -75,6 +141,36 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     };
   }, [loadStatus, router]);
 
+  useEffect(() => {
+    messageIdsRef.current = new Set(data?.messages.map((entry) => entry.id) ?? []);
+  }, [data?.messages]);
+
+  const refreshConversation = useCallback(async () => {
+    await loadStatus({ silent: true });
+  }, [loadStatus]);
+
+  const { connectionState } = useReporterTicketWebSocket({
+    ticketCode,
+    enabled: !checkingSession && !loading && data !== null,
+    onFallbackPoll: () => {
+      void refreshConversation();
+    },
+    onEvent: (event) => {
+      if (event.event === "session_expired") {
+        router.replace("/access");
+        return;
+      }
+      if (event.event !== "new_message") {
+        return;
+      }
+      const messageId = String(event.payload.message_id ?? "");
+      if (messageId && messageIdsRef.current.has(messageId)) {
+        return;
+      }
+      void refreshConversation();
+    },
+  });
+
   async function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!message.trim() || data?.status === "closed") {
@@ -83,9 +179,14 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     setActionError(null);
     setSending(true);
     try {
-      await postReporterMessage(ticketCode, message.trim());
+      const sent = await postReporterMessage(ticketCode, message.trim());
       setMessage("");
-      await loadStatus();
+      setData((current) => {
+        if (!current || current.messages.some((entry) => entry.id === sent.id)) {
+          return current;
+        }
+        return { ...current, messages: [...current.messages, sent] };
+      });
     } catch (err) {
       if (err instanceof ApiError) {
         setActionError(err.message);
@@ -106,7 +207,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     setUploading(true);
     try {
       await uploadAttachment(ticketCode, file, { linkToThread: true });
-      await loadStatus();
+      await loadStatus({ silent: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setActionError(err.message);
@@ -155,6 +256,24 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
           <h1 className="font-mono text-2xl font-bold tracking-[0.25em] text-ink">
             {ticketCode}
           </h1>
+          {connectionState === "connected" ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-sage">
+              <Wifi size={14} aria-hidden />
+              Live updates on
+            </p>
+          ) : null}
+          {connectionState === "connecting" || connectionState === "reconnecting" ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink/60">
+              <RefreshCw size={14} aria-hidden className="animate-spin" />
+              Reconnecting live updates
+            </p>
+          ) : null}
+          {connectionState === "polling" ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink/60">
+              <WifiOff size={14} aria-hidden />
+              Live updates unavailable. Refreshing every 30 seconds.
+            </p>
+          ) : null}
         </div>
         <button
           type="button"

@@ -28,6 +28,7 @@ import {
   sendAdminMessage,
   updateReportStatus,
   type ReportDetail,
+  type ReportMessage,
   type ReportStatus,
 } from "@/lib/api/admin-reports";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
@@ -77,6 +78,51 @@ function statusControlButtonClass(isCurrent: boolean): string {
     return "rounded-full border border-sage/50 bg-sage/15 px-3 py-1.5 text-xs font-semibold capitalize text-sage ring-2 ring-sage/25";
   }
   return "rounded-full border border-ink/10 bg-paper px-3 py-1.5 text-xs font-medium capitalize text-ink hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60";
+}
+
+function messagesMatch(existing: ReportMessage, incoming: ReportMessage): boolean {
+  return (
+    existing.content === incoming.content &&
+    existing.sender_type === incoming.sender_type &&
+    existing.created_at === incoming.created_at &&
+    existing.attachment?.id === incoming.attachment?.id &&
+    existing.attachment?.preview_url === incoming.attachment?.preview_url
+  );
+}
+
+function mergeDetailMessages(
+  current: ReportDetail,
+  fresh: ReportDetail,
+): ReportDetail {
+  const freshById = new Map(fresh.messages.map((message) => [message.id, message]));
+  const mergedMessages: ReportMessage[] = [];
+  let changed = false;
+
+  for (const existing of current.messages) {
+    const incoming = freshById.get(existing.id);
+    if (!incoming) {
+      changed = true;
+      continue;
+    }
+    freshById.delete(existing.id);
+    if (messagesMatch(existing, incoming)) {
+      mergedMessages.push(existing);
+    } else {
+      mergedMessages.push(incoming);
+      changed = true;
+    }
+  }
+
+  for (const incoming of freshById.values()) {
+    mergedMessages.push(incoming);
+    changed = true;
+  }
+
+  if (!changed) {
+    return current;
+  }
+
+  return { ...current, messages: mergedMessages };
 }
 
 function mergeReportPatch(
@@ -147,34 +193,23 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     null,
   );
   const [busy, setBusy] = useState(false);
+  const detailRef = useRef<ReportDetail | null>(null);
+  detailRef.current = detail;
 
   const refreshInboxLists = useCallback(async () => {
     await invalidateAdminReportLists(queryClient);
   }, [queryClient]);
 
-  const loadDetail = useCallback(async (options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      setLoading(true);
-    }
-    setError(null);
+  const refreshConversation = useCallback(async () => {
     try {
-      const [reportDetail, teamMembers, escalationContacts] = await Promise.all([
-        getAdminReport(reportId),
-        fetchAdminTeam(),
-        fetchEscalationContacts(),
-      ]);
-      setDetail(reportDetail);
-      setTeam(teamMembers);
-      setContacts(
-        escalationContacts.filter((contact) => contact.active !== false),
+      const reportDetail = await getAdminReport(reportId);
+      setDetail((current) =>
+        current ? mergeDetailMessages(current, reportDetail) : reportDetail,
       );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load report.");
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
+      setActionError(
+        err instanceof ApiError ? err.message : "Could not refresh conversation.",
+      );
     }
   }, [reportId]);
 
@@ -186,24 +221,65 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     async (patch: Record<string, unknown>) => {
       applyReportPatch(patch);
       await refreshInboxLists();
-      await loadDetail({ silent: true });
     },
-    [applyReportPatch, loadDetail, refreshInboxLists],
+    [applyReportPatch, refreshInboxLists],
   );
 
   useEffect(() => {
-    void loadDetail();
-  }, [loadDetail]);
+    let cancelled = false;
+    setDetail(null);
+    setError(null);
+    setLoading(true);
+
+    async function loadInitialDetail() {
+      try {
+        const [reportDetail, teamMembers, escalationContacts] = await Promise.all([
+          getAdminReport(reportId),
+          fetchAdminTeam(),
+          fetchEscalationContacts(),
+        ]);
+        if (cancelled) {
+          return;
+        }
+        setDetail(reportDetail);
+        setTeam(teamMembers);
+        setContacts(
+          escalationContacts.filter((contact) => contact.active !== false),
+        );
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Could not load report.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialDetail();
+    return () => {
+      cancelled = true;
+    };
+  }, [reportId]);
 
   useAdminWebSocket({
     enabled: true,
     onEvent: (event) => {
-      if (
-        event.event === "new_message" &&
-        event.payload.report_id === reportId
-      ) {
-        void loadDetail();
+      if (event.event !== "new_message") {
+        return;
       }
+      if (event.payload.report_id !== reportId) {
+        return;
+      }
+      const messageId = String(event.payload.message_id ?? "");
+      if (
+        messageId &&
+        detailRef.current?.messages.some((entry) => entry.id === messageId)
+      ) {
+        return;
+      }
+      void refreshConversation();
     },
   });
 
@@ -226,15 +302,14 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setBusy(true);
     setActionError(null);
     try {
-      if (action.type === "status") {
-        await updateReportStatus(reportId, action.status, confirmOverride);
-      } else {
-        await markReportFalse(reportId, confirmOverride);
-      }
+      const updated =
+        action.type === "status"
+          ? await updateReportStatus(reportId, action.status, confirmOverride)
+          : await markReportFalse(reportId, confirmOverride);
       setRecusalOpen(false);
       setPendingRecusal(null);
+      applyReportPatch(updated);
       await refreshInboxLists();
-      await loadDetail();
     } catch (err) {
       if (isRecusalConfirmationRequired(err)) {
         setPendingRecusal(action);
@@ -309,9 +384,9 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setBusy(true);
     setActionError(null);
     try {
-      await linkReportMember(reportId, linkAdminId);
+      const updated = await linkReportMember(reportId, linkAdminId);
+      applyReportPatch(updated);
       await refreshInboxLists();
-      await loadDetail();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Link failed.");
     } finally {
@@ -326,9 +401,17 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setBusy(true);
     setActionError(null);
     try {
-      await addInternalNote(reportId, noteText.trim());
+      const note = await addInternalNote(reportId, noteText.trim());
       setNoteText("");
-      await loadDetail();
+      setDetail((current) => {
+        if (!current || current.internal_notes.some((entry) => entry.id === note.id)) {
+          return current;
+        }
+        return {
+          ...current,
+          internal_notes: [...current.internal_notes, note],
+        };
+      });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not add note.");
     } finally {
@@ -343,9 +426,14 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     setBusy(true);
     setActionError(null);
     try {
-      await sendAdminMessage(reportId, messageText.trim());
+      const sent = await sendAdminMessage(reportId, messageText.trim());
       setMessageText("");
-      await loadDetail();
+      setDetail((current) => {
+        if (!current || current.messages.some((entry) => entry.id === sent.id)) {
+          return current;
+        }
+        return { ...current, messages: [...current.messages, sent] };
+      });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Could not send message.");
     } finally {
@@ -393,7 +481,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     }
   }
 
-  if (loading) {
+  if (loading && !detail) {
     return <SkeletonCard />;
   }
 
