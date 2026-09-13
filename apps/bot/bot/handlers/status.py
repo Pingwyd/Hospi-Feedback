@@ -31,6 +31,7 @@ from bot.live_relay import (
     register_live_relay,
 )
 from bot.messages import send_with_delete_button
+from bot.session_flags import clear_awaiting_status_code
 from bot.sessions import access_token
 
 TICKET_CODE_PATTERN = re.compile(rf"^[{TICKET_CODE_ALPHABET}]{{{TICKET_CODE_LENGTH}}}$")
@@ -224,6 +225,7 @@ async def load_ticket(
             ticket_code=ticket_code,
             known_message_ids=collect_message_ids(payload),
         )
+    clear_awaiting_status_code(context.user_data)
     body = format_ticket_status(payload)
     await send_with_delete_button(
         update,

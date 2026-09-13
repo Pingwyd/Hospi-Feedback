@@ -20,6 +20,11 @@ from bot.persistent_keyboard_lifecycle import (
     attach_persistent_keyboard,
     ensure_persistent_keyboard,
 )
+from bot.session_flags import (
+    clear_awaiting_access_code,
+    clear_awaiting_status_code,
+    set_awaiting_access_code,
+)
 from bot.sessions import (
     clear_access_session,
     has_valid_access_session,
@@ -37,12 +42,15 @@ async def start_command(
         context.application,
         update.effective_chat.id if update.effective_chat else None,
     )
+    clear_awaiting_status_code(context.user_data)
     if has_valid_access_session(context.user_data):
+        clear_awaiting_access_code(context.user_data)
         await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
         return ConversationHandler.END
     clear_access_session(context.user_data)
     context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
+    set_awaiting_access_code(context.user_data)
     await update.message.reply_text(
         "Welcome to Hospi Feedback.\n\n"
         "Enter the unit access code to continue. "
@@ -82,6 +90,8 @@ async def receive_access_code(
         context.application,
         update.effective_chat.id if update.effective_chat else None,
     )
+    clear_awaiting_status_code(context.user_data)
+    clear_awaiting_access_code(context.user_data)
     await attach_persistent_keyboard(update.message, context.user_data)
     await show_main_menu(update, context)
     return ConversationHandler.END
@@ -93,6 +103,8 @@ async def menu_command(
     if update.message is None:
         return ConversationHandler.END
     if has_valid_access_session(context.user_data):
+        clear_awaiting_status_code(context.user_data)
+        clear_awaiting_access_code(context.user_data)
         await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)
         return ConversationHandler.END
@@ -115,6 +127,8 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.application,
         update.effective_chat.id if update.effective_chat else None,
     )
+    clear_awaiting_status_code(context.user_data)
+    clear_awaiting_access_code(context.user_data)
     if has_valid_access_session(context.user_data):
         await ensure_persistent_keyboard(update.message, context.user_data)
         await show_main_menu(update, context)

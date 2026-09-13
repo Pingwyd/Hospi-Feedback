@@ -25,6 +25,8 @@ SESSION_EXPIRES_KEY = "access_expires_at"
 REPORT_DRAFT_KEY = "report_draft"
 REPORT_FLOW_STATE_KEY = "report_flow_state"
 STATUS_TICKET_KEY = "status_ticket_code"
+AWAITING_STATUS_CODE_KEY = "awaiting_status_code"
+AWAITING_ACCESS_CODE_KEY = "awaiting_access_code"
 DELETE_TARGETS_KEY = "delete_targets"
 PERSISTENT_KEYBOARD_ATTACHED_KEY = "persistent_keyboard_attached"
 
@@ -73,4 +75,15 @@ STATUS_ASYNC_NOTE = (
     "While your session is open, new admin replies arrive here "
     "automatically. If your session ends, run /status with your ticket code "
     "again to read them."
+)
+
+IDLE_UNRECOGNIZED_TEXT_NUDGE = (
+    "I did not recognize that. Tap Menu to choose an action, "
+    "or use /status <code> to open a ticket thread."
+)
+
+UNAUTHENTICATED_FIRST_TOUCH_NUDGE = "Send /start to begin."
+
+LAPSED_SESSION_NUDGE = (
+    "Your session expired. Send /start and enter the access code again."
 )
