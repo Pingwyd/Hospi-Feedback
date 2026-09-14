@@ -68,7 +68,34 @@ function mockReporterApi(page: import("@playwright/test").Page) {
           severity: null,
           created_at: "2026-09-03T12:00:00Z",
           updated_at: "2026-09-03T12:00:00Z",
+          report_attachments: [],
           messages: [],
+        }),
+      });
+    }),
+    page.route("**/api/access/ws-bootstrap", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          access_token: "mock-session-token",
+          expires_at: "2026-09-04T12:00:00Z",
+        }),
+      });
+    }),
+    page.route(`**/api/reports/ticket/${TICKET_CODE}/message`, async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "msg-playwright-1",
+          sender_type: "reporter",
+          content: "Follow-up from Playwright.",
+          created_at: "2026-09-03T13:00:00Z",
         }),
       });
     }),
@@ -135,5 +162,27 @@ test.describe("Step 4 reporter UI verification", () => {
     await page.goto(`/status/${TICKET_CODE}`);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(TICKET_CODE);
     await expect(page.getByText("Playwright verification report.")).toBeVisible();
+  });
+
+  test("status page keeps layout when sending a message", async ({ page }) => {
+    await mockReporterApi(page);
+    await page.context().addCookies([
+      {
+        name: "hospi_access_session",
+        value: "mock-session-token",
+        url: "http://127.0.0.1:3000",
+      },
+    ]);
+
+    await page.goto(`/status/${TICKET_CODE}`);
+    await expect(page.locator(".skeleton-shimmer")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(TICKET_CODE);
+
+    await page.getByLabel("Send a message").fill("Follow-up from Playwright.");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    await expect(page.getByText("Follow-up from Playwright.")).toBeVisible();
+    await expect(page.locator(".skeleton-shimmer")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(TICKET_CODE);
   });
 });
