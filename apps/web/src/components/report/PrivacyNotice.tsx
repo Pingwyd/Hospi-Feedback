@@ -5,7 +5,6 @@ import {
   PRIVACY_NOTICE_HEADING,
   PRIVACY_NOTICE_LINK_LABEL,
   PRIVACY_NOTICE_SUMMARY_LEAD,
-  PRIVACY_NOTICE_SUMMARY_TELEGRAM,
 } from "@/components/report/privacy-notice-content";
 
 const privacyLinkClass = "font-medium text-sage underline underline-offset-2";
@@ -23,7 +22,7 @@ export function PrivacyNotice() {
         </h2>
       </div>
       <p className="text-sm leading-relaxed text-ink/80">
-        {PRIVACY_NOTICE_SUMMARY_LEAD} {PRIVACY_NOTICE_SUMMARY_TELEGRAM}{" "}
+        {PRIVACY_NOTICE_SUMMARY_LEAD}{" "}
         <Link href="/privacy" className={privacyLinkClass}>
           {PRIVACY_NOTICE_LINK_LABEL}
         </Link>{" "}

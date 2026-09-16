@@ -11,9 +11,6 @@ export const PRIVACY_NOTICE_BULLETS = [
 ] as const;
 
 export const PRIVACY_NOTICE_SUMMARY_LEAD =
-  "We do not ask for your name, email, or login, and your report is not linked to your identity on this website.";
-
-export const PRIVACY_NOTICE_SUMMARY_TELEGRAM =
-  "If you use Telegram, your report works the same way, but you may need to check back manually for replies.";
+  "We never ask for your name, email, or login, so your report stays anonymous.";
 
 export const PRIVACY_NOTICE_LINK_LABEL = "Read our full privacy notice";
