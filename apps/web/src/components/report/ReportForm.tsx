@@ -1,9 +1,10 @@
 "use client";
 
 import { AlertCircle, ImagePlus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 
-import { PrivacyNotice } from "@/components/report/PrivacyNotice";
+import { PrivacyNotice, privacyLinkClass } from "@/components/report/PrivacyNotice";
 import { PhotoConfirmModal } from "@/components/shared/PhotoConfirmModal";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -330,8 +331,12 @@ export function ReportForm({ onSubmitted }: ReportFormProps) {
           className="mt-1 h-4 w-4 rounded border-ink/20 text-sage focus:ring-sage"
         />
         <span>
-          I have read the privacy notice and understand how anonymity works on this
-          platform. <span className="text-brass">*</span>
+          I have read the{" "}
+          <Link href="/privacy" className={privacyLinkClass}>
+            privacy notice
+          </Link>{" "}
+          and understand how anonymity works on this platform.{" "}
+          <span className="text-brass">*</span>
         </span>
       </label>
 
