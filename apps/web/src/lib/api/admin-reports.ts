@@ -35,6 +35,7 @@ export type ReportMessage = {
   content: string;
   created_at: string;
   attachment?: AttachmentSummary | null;
+  attachments?: AttachmentSummary[];
 };
 
 export type InternalNote = {

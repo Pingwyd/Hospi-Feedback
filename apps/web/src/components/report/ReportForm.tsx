@@ -1,9 +1,10 @@
 "use client";
 
-import { AlertCircle, ImagePlus } from "lucide-react";
-import { FormEvent, useRef, useState } from "react";
+import { AlertCircle, ImagePlus, Trash2 } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { PrivacyNotice } from "@/components/report/PrivacyNotice";
+import { PhotoConfirmModal } from "@/components/shared/PhotoConfirmModal";
 import { ApiError } from "@/lib/api/client";
 import {
   type CreateReportPayload,
@@ -12,6 +13,8 @@ import {
   createReport,
   uploadAttachment,
 } from "@/lib/api/reports";
+import { formatMaxAttachmentSize } from "@/lib/attachments/constants";
+import { usePhotoConfirmFlow } from "@/lib/hooks/usePhotoConfirmFlow";
 
 const REPORT_TYPES: { value: ReportType; label: string }[] = [
   { value: "complaint", label: "Complaint" },
@@ -25,25 +28,85 @@ const SEVERITIES: { value: Severity; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
+type PendingReportPhoto = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
+
 type ReportFormProps = {
   onSubmitted: (ticketCode: string) => void;
 };
 
 export function ReportForm({ onSubmitted }: ReportFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addPhotoButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingPhotosRef = useRef<PendingReportPhoto[]>([]);
+  const idPrefix = useId();
+
   const [reportType, setReportType] = useState<ReportType>("complaint");
   const [description, setDescription] = useState("");
   const [memberName, setMemberName] = useState("");
   const [severity, setSeverity] = useState<Severity | "">("");
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [pendingPhotos, setPendingPhotos] = useState<PendingReportPhoto[]>([]);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    setPhoto(file);
+  useEffect(() => {
+    pendingPhotosRef.current = pendingPhotos;
+  }, [pendingPhotos]);
+
+  useEffect(() => {
+    return () => {
+      for (const entry of pendingPhotosRef.current) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+    };
+  }, []);
+
+  const addPendingPhoto = useCallback((file: File) => {
+    const previewUrl = URL.createObjectURL(file);
+    setPendingPhotos((current) => [
+      ...current,
+      { id: `${idPrefix}-${file.name}-${file.lastModified}-${current.length}`, file, previewUrl },
+    ]);
+  }, [idPrefix]);
+
+  const photoFlow = usePhotoConfirmFlow({
+    onValidationErrors: (messages) => {
+      setFieldErrors(messages);
+    },
+    onConfirm: async (files) => {
+      for (const file of files) {
+        addPendingPhoto(file);
+      }
+    },
+  });
+
+  function removePendingPhoto(id: string) {
+    setPendingPhotos((current) => {
+      const target = current.find((entry) => entry.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return current.filter((entry) => entry.id !== id);
+    });
+  }
+
+  function handlePhotoInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    if (photoFlow.isBusy) {
+      event.target.value = "";
+      return;
+    }
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) {
+      return;
+    }
+    setFieldErrors([]);
+    photoFlow.enqueueFiles(files);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -78,9 +141,14 @@ export function ReportForm({ onSubmitted }: ReportFormProps) {
 
       const result = await createReport(payload);
 
-      if (photo) {
-        await uploadAttachment(result.ticket_code, photo);
+      for (const entry of pendingPhotos) {
+        await uploadAttachment(result.ticket_code, entry.file);
       }
+
+      for (const entry of pendingPhotos) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+      setPendingPhotos([]);
 
       onSubmitted(result.ticket_code);
     } catch (err) {
@@ -171,25 +239,86 @@ export function ReportForm({ onSubmitted }: ReportFormProps) {
         </div>
 
         <div>
-          <span className="mb-2 block text-sm font-medium text-ink">Photo (optional)</span>
+          <span className="mb-2 block text-sm font-medium text-ink">Photos (optional)</span>
           <input
             ref={fileInputRef}
             id="photo"
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={handlePhotoChange}
+            multiple
+            onChange={handlePhotoInputChange}
             className="sr-only"
           />
           <button
+            ref={addPhotoButtonRef}
             type="button"
+            disabled={submitting || photoFlow.isBusy || photoFlow.modalOpen}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-3 text-sm font-medium text-ink transition hover:border-sage hover:text-sage"
+            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-3 text-sm font-medium text-ink transition hover:border-sage hover:text-sage disabled:opacity-60"
           >
             <ImagePlus size={18} aria-hidden />
-            {photo ? photo.name : "Choose JPEG, PNG, or WebP (max 5 MB)"}
+            Add photo evidence
           </button>
+          <p className="mt-2 text-xs text-ink/60">
+            JPEG, PNG, or WebP. Up to {formatMaxAttachmentSize()} per photo. Add as many photos
+            as you need; each is reviewed before it is attached.
+          </p>
+
+          {pendingPhotos.length > 0 ? (
+            <ul className="mt-4 flex flex-wrap gap-3">
+              {pendingPhotos.map((entry) => (
+                <li key={entry.id} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={entry.previewUrl}
+                    alt={`Pending evidence: ${entry.file.name}`}
+                    className="h-24 w-24 rounded-xl border border-ink/10 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePendingPhoto(entry.id)}
+                    disabled={submitting}
+                    className="absolute -right-2 -top-2 rounded-full border border-ink/10 bg-paper p-1 text-ink/70 shadow-sm hover:text-brass disabled:opacity-60"
+                    aria-label={`Remove ${entry.file.name} from report`}
+                  >
+                    <Trash2 size={14} aria-hidden />
+                  </button>
+                  <p className="mt-1 max-w-24 truncate text-[11px] text-ink/60">{entry.file.name}</p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
+
+      <PhotoConfirmModal
+        open={photoFlow.modalOpen}
+        items={photoFlow.pendingItems.map((item) => ({
+          id: item.id,
+          previewUrl: item.previewUrl,
+          fileName: item.file.name,
+        }))}
+        title="Add photos to report"
+        description="Review each photo below before attaching them as evidence on your report."
+        confirmLabel={
+          photoFlow.pendingItems.length > 1
+            ? `Add ${photoFlow.pendingItems.length} photos to report`
+            : "Add photo to report"
+        }
+        confirming={photoFlow.confirming}
+        confirmingLabel="Adding..."
+        onConfirm={() => {
+          void photoFlow.handleConfirm();
+        }}
+        onAddMorePhotos={() => {
+          if (!photoFlow.isBusy) {
+            fileInputRef.current?.click();
+          }
+        }}
+        onRemoveItem={photoFlow.removePendingItem}
+        onCancel={photoFlow.handleCancel}
+        returnFocusRef={addPhotoButtonRef}
+      />
 
       <PrivacyNotice />
 
@@ -231,7 +360,7 @@ export function ReportForm({ onSubmitted }: ReportFormProps) {
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || photoFlow.modalOpen}
         className="w-full rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? "Submitting..." : "Submit report"}

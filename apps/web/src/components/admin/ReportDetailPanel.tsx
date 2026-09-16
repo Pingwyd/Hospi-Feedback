@@ -33,9 +33,13 @@ import {
 } from "@/lib/api/admin-reports";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
 import { invalidateAdminReportLists } from "@/lib/query/admin-report-queries";
-import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
-
-const PHOTO_PLACEHOLDER = "Photo attached";
+import { ChatImageAttachment } from "@/components/shared/ChatImageAttachment";
+import { MessageAttachmentGrid } from "@/components/shared/MessageAttachmentGrid";
+import {
+  attachmentsMatch,
+  messageAttachments,
+  shouldShowMessageText,
+} from "@/lib/messages/attachments";
 const DELETE_REASON_INPUT_ID = "delete-reason-input";
 const DELETE_REASON_ERROR_ID = "delete-reason-error";
 const DELETE_REASON_REQUIRED_MSG = "Delete reason is required.";
@@ -85,8 +89,7 @@ function messagesMatch(existing: ReportMessage, incoming: ReportMessage): boolea
     existing.content === incoming.content &&
     existing.sender_type === incoming.sender_type &&
     existing.created_at === incoming.created_at &&
-    existing.attachment?.id === incoming.attachment?.id &&
-    existing.attachment?.preview_url === incoming.attachment?.preview_url
+    attachmentsMatch(messageAttachments(existing), messageAttachments(incoming))
   );
 }
 
@@ -724,10 +727,10 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/60">
               Photos on original report
             </h2>
-            <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+            <ul className="mt-4 flex flex-wrap gap-3">
               {(detail?.report_attachments ?? []).map((attachment) => (
                 <li key={attachment.id}>
-                  <AttachmentPreview
+                  <ChatImageAttachment
                     previewUrl={attachment.preview_url}
                     alt="Original report photo"
                     authMode="admin"
@@ -755,16 +758,12 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
                 <p className="mb-1 text-xs uppercase tracking-wide opacity-70">
                   {message.sender_type}
                 </p>
-                {message.attachment ? (
-                  <AttachmentPreview
-                    previewUrl={message.attachment.preview_url}
-                    alt="Follow-up photo"
-                    authMode="admin"
-                  />
-                ) : null}
-                {message.content !== PHOTO_PLACEHOLDER || !message.attachment ? (
-                  <p>{message.content}</p>
-                ) : null}
+                <MessageAttachmentGrid
+                  attachments={messageAttachments(message)}
+                  altPrefix="Follow-up photo"
+                  authMode="admin"
+                />
+                {shouldShowMessageText(message) ? <p>{message.content}</p> : null}
               </div>
             ))}
           </div>
