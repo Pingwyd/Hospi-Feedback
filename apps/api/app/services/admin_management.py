@@ -17,6 +17,7 @@ from app.integrations.admin_management_store import (
 )
 from app.integrations.gotrue_admin import ensure_confirmed_email_user
 from app.services.admin_config import validate_permissions
+from app.services.admin_subunits import validate_admin_subunit_for_create
 from app.services.audit_log import write_audit_log
 
 
@@ -69,6 +70,7 @@ def create_admin_user(
     if not cleaned_email or not password.strip() or not cleaned_name:
         raise AdminReportValidationError("email, password, and full_name are required.")
     validated = validate_permissions(permissions)
+    stored_subunit = validate_admin_subunit_for_create(role, subunit)
     user_id = ensure_confirmed_email_user(
         supabase_url=settings.supabase_url,
         service_role_key=settings.supabase_service_role_key,
@@ -81,7 +83,7 @@ def create_admin_user(
             "id": user_id,
             "full_name": cleaned_name,
             "role": role,
-            "subunit": subunit,
+            "subunit": stored_subunit,
             "active": True,
         },
     )
