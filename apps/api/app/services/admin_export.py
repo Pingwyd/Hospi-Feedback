@@ -13,6 +13,7 @@ from app.integrations.reports_store import (
     fetch_category_names_for_reports,
     list_reports,
 )
+from app.services.admin_reports import validate_report_list_filters
 from app.services.audit_log import write_audit_log
 from app.services.export_content import (
     ExportFilters,
@@ -51,11 +52,18 @@ def build_filtered_admin_export(
     export_format: ExportFormat,
     status: str | None = None,
     keyword: str | None = None,
+    report_type: str | None = None,
+    severity: str | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
 ) -> tuple[bytes, str, str]:
     """Return document bytes, filename, and media type."""
     _require_export_permission(admin)
+    validate_report_list_filters(
+        status=status,
+        report_type=report_type,
+        severity=severity,
+    )
     filters = ExportFilters(
         status=status,
         keyword=keyword,
@@ -67,6 +75,8 @@ def build_filtered_admin_export(
         **store,
         status=status,
         keyword=keyword,
+        report_type=report_type,
+        severity=severity,
         created_from=created_from,
         created_to=created_to,
         limit=EXPORT_REPORT_LIMIT,
