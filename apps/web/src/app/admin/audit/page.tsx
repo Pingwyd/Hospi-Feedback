@@ -91,8 +91,13 @@ export default function AdminAuditPage() {
                     <td className="px-4 py-3 font-mono text-xs text-ink/70">
                       {entry.report_id ?? "N/A"}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-ink/70">
-                      {entry.admin_id}
+                    <td className="px-4 py-3 text-ink">
+                      <span className="font-medium">{entry.admin_display_name}</span>
+                      {entry.admin_role ? (
+                        <span className="mt-0.5 block text-xs capitalize text-ink/50">
+                          {entry.admin_role.replace(/_/g, " ")}
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
