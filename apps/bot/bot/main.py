@@ -30,8 +30,11 @@ from bot.constants import (
     REPORT_DESCRIPTION,
     REPORT_MEMBER,
     REPORT_PHOTO,
+    REPORT_PHOTOS_DONE_CALLBACK,
     REPORT_SEVERITY,
     SKIP_CALLBACK,
+    STATUS_PHOTOS_DISCARD_CALLBACK,
+    STATUS_PHOTOS_SEND_CALLBACK,
     STATUS_AWAIT_CODE,
 )
 from bot.handlers.admin import link_command, stats_command
@@ -47,6 +50,7 @@ from bot.handlers.report import (
     confirm_report,
     receive_description,
     receive_member_text,
+    finish_report_photos,
     receive_photo,
     receive_severity,
     skip_member,
@@ -63,6 +67,7 @@ from bot.handlers.status import (
     receive_status_code,
     status_chat_message,
     status_chat_photo,
+    status_pending_photos_callback,
     status_command,
 )
 from bot.live_relay import LIVE_RELAY_INTERVAL_SECONDS, poll_status_live_relays
@@ -153,6 +158,10 @@ def build_application(settings: BotSettings) -> Application:
             ],
             REPORT_PHOTO: [
                 MessageHandler(filters.PHOTO, receive_photo),
+                CallbackQueryHandler(
+                    finish_report_photos,
+                    pattern=f"^{REPORT_PHOTOS_DONE_CALLBACK}$",
+                ),
                 CallbackQueryHandler(skip_photo, pattern=f"^{SKIP_CALLBACK}$"),
             ],
             REPORT_CONFIRM: [
@@ -213,6 +222,13 @@ def build_application(settings: BotSettings) -> Application:
             delete_message_callback,
             pattern=rf"^{DELETE_CALLBACK_PREFIX}\d+$",
         )
+    )
+    application.add_handler(
+        CallbackQueryHandler(
+            status_pending_photos_callback,
+            pattern=rf"^({STATUS_PHOTOS_SEND_CALLBACK}|{STATUS_PHOTOS_DISCARD_CALLBACK})$",
+        ),
+        group=1,
     )
     application.add_handler(
         MessageHandler(filters.PHOTO, status_chat_photo),

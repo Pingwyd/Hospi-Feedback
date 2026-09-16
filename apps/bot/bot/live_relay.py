@@ -8,7 +8,11 @@ from typing import Any
 
 from telegram.ext import Application, ContextTypes
 
-from bot.constants import STATUS_TICKET_KEY
+from bot.constants import (
+    STATUS_PENDING_PHOTOS_KEY,
+    STATUS_PENDING_PHOTOS_PROMPT_MSG_ID,
+    STATUS_TICKET_KEY,
+)
 from bot.sessions import access_token
 
 logger = logging.getLogger(__name__)
@@ -56,6 +60,8 @@ def clear_status_ticket_session(
     chat_id: int | None,
 ) -> None:
     user_data.pop(STATUS_TICKET_KEY, None)
+    user_data.pop(STATUS_PENDING_PHOTOS_KEY, None)
+    user_data.pop(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID, None)
     if chat_id is not None:
         unregister_live_relay(application, chat_id)
 

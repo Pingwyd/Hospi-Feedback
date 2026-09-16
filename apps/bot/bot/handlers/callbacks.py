@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes
 
 from bot.constants import DELETE_CALLBACK_PREFIX
 from bot.delete_targets import owns_delete_target
+from bot.telegram_utils import safe_answer_callback_query
 
 
 async def delete_message_callback(
@@ -19,7 +20,9 @@ async def delete_message_callback(
         return
     suffix = query.data.removeprefix(DELETE_CALLBACK_PREFIX)
     if not suffix.isdigit():
-        await query.answer("This button is no longer valid.")
+        await safe_answer_callback_query(
+            query, text="This button is no longer valid."
+        )
         return
     message_id = int(suffix)
     chat_id = query.message.chat_id
@@ -28,9 +31,9 @@ async def delete_message_callback(
         chat_id=chat_id,
         message_id=message_id,
     ):
-        await query.answer("You cannot delete this message.")
+        await safe_answer_callback_query(query, text="You cannot delete this message.")
         return
-    await query.answer()
+    await safe_answer_callback_query(query)
     try:
         await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
     except Exception:

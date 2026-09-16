@@ -14,6 +14,10 @@ from bot.constants import (
     PERSISTENT_MENU_LABEL,
     STATUS_ASYNC_NOTE,
     STATUS_AWAIT_CODE,
+    STATUS_PENDING_PHOTOS_KEY,
+    STATUS_PENDING_PHOTOS_PROMPT_MSG_ID,
+    STATUS_PHOTOS_DISCARD_CALLBACK,
+    STATUS_PHOTOS_SEND_CALLBACK,
     STATUS_TICKET_KEY,
     TICKET_CODE_ALPHABET,
     TICKET_CODE_LENGTH,
@@ -22,8 +26,12 @@ from bot.handlers.auth_gate import ensure_session_or_prompt
 from bot.handlers.persistent_keyboard import try_handle_persistent_keyboard
 from bot.handlers.status_attachments import (
     PHOTO_PLACEHOLDER,
+    _attachment_dicts_for_message,
+    iter_message_attachment_previews,
     iter_status_attachment_previews,
 )
+from bot.keyboards import status_pending_photos_keyboard
+from bot.telegram_utils import safe_answer_callback_query
 from bot.hashing import hash_telegram_identifier
 from bot.live_relay import (
     clear_status_ticket_session,
@@ -47,7 +55,10 @@ def normalize_ticket_code(raw: str) -> str | None:
 def format_status_message_line(item: dict) -> str:
     sender = item.get("sender_type", "unknown")
     content = item.get("content", "")
-    if item.get("attachment") and content == PHOTO_PLACEHOLDER:
+    attachment_count = len(_attachment_dicts_for_message(item))
+    if attachment_count > 0 and content == PHOTO_PLACEHOLDER:
+        if attachment_count > 1:
+            return f"- ({sender}) [{attachment_count} photos attached below]"
         return f"- ({sender}) [photo attached below]"
     return f"- ({sender}) {content}"
 
@@ -167,21 +178,60 @@ async def deliver_live_admin_messages(
     messages: list[dict],
 ) -> None:
     for message in messages:
-        attachment = message.get("attachment")
-        if not isinstance(attachment, dict):
-            continue
-        preview_url = attachment.get("preview_url")
-        if not isinstance(preview_url, str) or not preview_url.strip():
-            continue
-        sender = str(message.get("sender_type") or "admin")
-        await _send_attachment_photo(
-            chat_id,
-            context,
-            api=api,
-            token=token,
-            caption=f"Follow-up photo ({sender})",
-            preview_url=preview_url,
-        )
+        for caption, preview_url in iter_message_attachment_previews(message):
+            await _send_attachment_photo(
+                chat_id,
+                context,
+                api=api,
+                token=token,
+                caption=caption,
+                preview_url=preview_url,
+            )
+
+
+def _pending_photo_file_ids(user_data: dict) -> list[str]:
+    raw = user_data.get(STATUS_PENDING_PHOTOS_KEY)
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, str) and item]
+
+
+async def _update_pending_photos_prompt(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    photo_count: int,
+) -> None:
+    if update.effective_chat is None:
+        return
+    text = (
+        f"{photo_count} photo(s) ready. Send them to the team or discard the selection."
+        if photo_count > 0
+        else "No photos selected."
+    )
+    keyboard = status_pending_photos_keyboard(photo_count=photo_count)
+    prompt_id = context.user_data.get(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID)
+    if isinstance(prompt_id, int):
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=prompt_id,
+                text=text,
+                reply_markup=keyboard,
+            )
+            return
+        except Exception:
+            context.user_data.pop(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID, None)
+    sent = await update.effective_chat.send_message(text, reply_markup=keyboard)
+    context.user_data[STATUS_PENDING_PHOTOS_PROMPT_MSG_ID] = sent.message_id
+
+
+async def _download_telegram_photo_bytes(
+    context: ContextTypes.DEFAULT_TYPE,
+    file_id: str,
+) -> bytes:
+    telegram_file = await context.bot.get_file(file_id)
+    return bytes(await telegram_file.download_as_bytearray())
 
 
 async def load_ticket(
@@ -329,49 +379,108 @@ async def status_chat_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
     if not await ensure_session_or_prompt(update, context):
         return
+    photo = update.message.photo[-1]
+    pending = _pending_photo_file_ids(context.user_data)
+    if photo.file_id not in pending:
+        pending.append(photo.file_id)
+    context.user_data[STATUS_PENDING_PHOTOS_KEY] = pending
+    await _update_pending_photos_prompt(update, context, photo_count=len(pending))
+
+
+async def status_pending_photos_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    query = update.callback_query
+    if query is None or query.data is None:
+        return
+    ticket_code = context.user_data.get(STATUS_TICKET_KEY)
+    if not isinstance(ticket_code, str):
+        await safe_answer_callback_query(query)
+        return
+    if not await ensure_session_or_prompt(update, context):
+        return
     api: HospiApiClient = context.application.bot_data["api_client"]
     token = access_token(context.user_data)
     if token is None:
+        await safe_answer_callback_query(query)
         return
-    photo = update.message.photo[-1]
+
+    if query.data == STATUS_PHOTOS_DISCARD_CALLBACK:
+        await safe_answer_callback_query(query)
+        context.user_data.pop(STATUS_PENDING_PHOTOS_KEY, None)
+        context.user_data.pop(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID, None)
+        if query.message is not None:
+            await query.message.edit_text("Photos discarded.")
+        return
+
+    if query.data != STATUS_PHOTOS_SEND_CALLBACK:
+        await safe_answer_callback_query(query)
+        return
+
+    pending = _pending_photo_file_ids(context.user_data)
+    if not pending:
+        await safe_answer_callback_query(query, text="No photos selected.")
+        return
+
+    await safe_answer_callback_query(query, text="Uploading photos...")
     try:
         await _enforce_rate_limit(update, context)
-        telegram_file = await context.bot.get_file(photo.file_id)
-        photo_bytes = bytes(await telegram_file.download_as_bytearray())
-        result = await api.upload_attachment(
+        file_payloads: list[tuple[str, bytes, str]] = []
+        for index, file_id in enumerate(pending, start=1):
+            photo_bytes = await _download_telegram_photo_bytes(context, file_id)
+            file_payloads.append(
+                (f"telegram-followup-{index}.jpg", photo_bytes, "image/jpeg"),
+            )
+        result = await api.upload_attachments_batch(
             token=token,
             ticket_code=ticket_code,
-            filename="telegram-followup.jpg",
-            content_type="image/jpeg",
-            data=photo_bytes,
-            link_to_thread=True,
+            files=file_payloads,
         )
     except ApiClientError as exc:
         if exc.status_code == 429:
-            await update.message.reply_text(
+            await query.message.reply_text(
                 "You have sent too many requests. Try again later."
             )
         elif exc.status_code == 409:
-            await update.message.reply_text("This ticket is closed.")
+            await query.message.reply_text("This ticket is closed.")
             clear_status_ticket_session(
                 context.user_data,
                 context.application,
                 update.effective_chat.id if update.effective_chat else None,
             )
         else:
-            await update.message.reply_text(
-                "Could not upload your photo. Try again in a moment."
+            await query.message.reply_text(
+                "Could not upload your photos. Try again in a moment."
             )
         return
-    preview_url = result.get("preview_url")
-    if isinstance(preview_url, str) and preview_url.strip():
-        await _send_attachment_photo(
-            update.effective_chat.id,
-            context,
-            api=api,
-            token=token,
-            caption="Your follow-up photo",
-            preview_url=preview_url,
-        )
-    else:
-        await update.message.reply_text("Photo sent.")
+
+    context.user_data.pop(STATUS_PENDING_PHOTOS_KEY, None)
+    context.user_data.pop(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID, None)
+    attachments = result.get("attachments") or []
+    if isinstance(attachments, list) and attachments:
+        count = len(attachments)
+        if query.message is not None:
+            await query.message.edit_text(
+                f"{count} photo(s) sent to the team."
+                if count > 1
+                else "Photo sent to the team."
+            )
+        for index, attachment in enumerate(attachments, start=1):
+            if not isinstance(attachment, dict):
+                continue
+            preview_url = attachment.get("preview_url")
+            if not isinstance(preview_url, str) or not preview_url.strip():
+                continue
+            caption = "Your follow-up photo"
+            if count > 1:
+                caption = f"Your follow-up photo {index}"
+            await _send_attachment_photo(
+                update.effective_chat.id,
+                context,
+                api=api,
+                token=token,
+                caption=caption,
+                preview_url=preview_url,
+            )
+    elif query.message is not None:
+        await query.message.edit_text("Photo sent.")
