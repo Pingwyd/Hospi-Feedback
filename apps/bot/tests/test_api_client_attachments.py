@@ -93,6 +93,43 @@ async def test_upload_attachment_link_to_thread_query() -> None:
 
 
 @pytest.mark.asyncio
+async def test_upload_attachments_batch_posts_multipart_to_batch_path() -> None:
+    response = httpx.Response(
+        201,
+        json={
+            "message_id": "m-batch",
+            "attachments": [
+                {"id": "a1", "file_type": "image/jpeg"},
+                {"id": "a2", "file_type": "image/jpeg"},
+            ],
+        },
+        request=httpx.Request("POST", "http://api.test/x"),
+    )
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("bot.api_client.httpx.AsyncClient", return_value=mock_client):
+        client = HospiApiClient(base_url="http://api.test")
+        result = await client.upload_attachments_batch(
+            token="session-token",
+            ticket_code="ABCD1234",
+            files=[
+                ("one.jpg", b"1", "image/jpeg"),
+                ("two.jpg", b"2", "image/jpeg"),
+            ],
+        )
+
+    assert result["message_id"] == "m-batch"
+    assert len(result["attachments"]) == 2
+    post_url = mock_client.post.await_args.args[0]
+    assert post_url.endswith("/attachments/batch")
+    call_kwargs = mock_client.post.await_args.kwargs
+    assert call_kwargs["headers"]["Authorization"] == "Bearer session-token"
+
+
+@pytest.mark.asyncio
 async def test_fetch_telegram_dashboard_stats_uses_bot_secret_and_chat_id() -> None:
     response = httpx.Response(
         200,

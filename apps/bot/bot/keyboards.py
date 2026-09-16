@@ -21,7 +21,10 @@ from bot.constants import (
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_MENU_LABEL,
     REPORT_CALLBACK_PREFIX,
+    REPORT_PHOTOS_DONE_CALLBACK,
     SKIP_CALLBACK,
+    STATUS_PHOTOS_DISCARD_CALLBACK,
+    STATUS_PHOTOS_SEND_CALLBACK,
 )
 
 
@@ -77,6 +80,40 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
 def skip_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [[InlineKeyboardButton("Skip", callback_data=SKIP_CALLBACK)]]
+    )
+
+
+def report_photo_keyboard(*, photo_count: int) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if photo_count > 0:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"Done ({photo_count} photo{'s' if photo_count != 1 else ''})",
+                    callback_data=REPORT_PHOTOS_DONE_CALLBACK,
+                )
+            ]
+        )
+    rows.append([InlineKeyboardButton("Skip photos", callback_data=SKIP_CALLBACK)])
+    return InlineKeyboardMarkup(rows)
+
+
+def status_pending_photos_keyboard(*, photo_count: int) -> InlineKeyboardMarkup:
+    label = (
+        f"Send {photo_count} photos to thread"
+        if photo_count != 1
+        else "Send photo to thread"
+    )
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(label, callback_data=STATUS_PHOTOS_SEND_CALLBACK)],
+            [
+                InlineKeyboardButton(
+                    "Discard photos",
+                    callback_data=STATUS_PHOTOS_DISCARD_CALLBACK,
+                )
+            ],
+        ]
     )
 
 

@@ -38,6 +38,26 @@ def test_iter_status_attachment_previews_orders_report_then_messages() -> None:
     assert items[1][1].endswith("/attachments/a2")
 
 
+def test_iter_status_attachment_previews_expands_message_attachments_array() -> None:
+    payload = {
+        "report_attachments": [],
+        "messages": [
+            {
+                "sender_type": "reporter",
+                "content": PHOTO_PLACEHOLDER,
+                "attachments": [
+                    {"preview_url": "/api/reports/ticket/ABCD1234/attachments/a1"},
+                    {"preview_url": "/api/reports/ticket/ABCD1234/attachments/a2"},
+                ],
+            }
+        ],
+    }
+    items = iter_status_attachment_previews(payload)
+    assert len(items) == 2
+    assert items[0][0] == "Follow-up photo (reporter) 1"
+    assert items[1][0] == "Follow-up photo (reporter) 2"
+
+
 def test_format_ticket_status_marks_photo_messages() -> None:
     payload = {
         "status": "new",

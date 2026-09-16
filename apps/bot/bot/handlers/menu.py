@@ -26,6 +26,7 @@ from bot.constants import (
     STATUS_AWAIT_CODE,
     STATUS_TICKET_KEY,
 )
+from bot.telegram_utils import safe_answer_callback_query
 from bot.keyboards import (
     discard_confirm_keyboard,
     main_menu_keyboard,
@@ -77,7 +78,7 @@ async def prompt_expired_session_access_code(
 ) -> int:
     query = update.callback_query
     if query is not None:
-        await query.answer()
+        await safe_answer_callback_query(query)
         target = query.message
     else:
         target = update.message
@@ -101,7 +102,7 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text = "What would you like to do?"
     keyboard = main_menu_keyboard()
     if update.callback_query is not None:
-        await update.callback_query.answer()
+        await safe_answer_callback_query(update.callback_query)
         await update.callback_query.edit_message_text(text, reply_markup=keyboard)
         return
     chat = update.effective_chat
@@ -133,7 +134,7 @@ async def _send_resume_prompt(
         return
     if resume_state == REPORT_PHOTO:
         await message.reply_text(
-            "Optional: send one photo, or tap Skip.",
+            "Optional: send one or more photos, then tap Done. Or tap Skip photos.",
             reply_markup=skip_keyboard(),
         )
         return
@@ -189,7 +190,7 @@ async def handle_menu_callback(
         return ConversationHandler.END
     if not has_valid_access_session(context.user_data):
         return await prompt_expired_session_access_code(update, context)
-    await query.answer()
+    await safe_answer_callback_query(query)
     action = query.data.removeprefix(MENU_CALLBACK_PREFIX)
     if action in _REPORT_TYPE_ACTIONS and draft_is_in_progress(context.user_data):
         context.user_data[REPORT_FLOW_STATE_KEY] = context.user_data.get(
@@ -211,7 +212,7 @@ async def handle_menu_go_callback(
         return ConversationHandler.END
     if not has_valid_access_session(context.user_data):
         return await prompt_expired_session_access_code(update, context)
-    await query.answer()
+    await safe_answer_callback_query(query)
     action = query.data.removeprefix(MENU_GO_CALLBACK_PREFIX)
     context.user_data.pop(REPORT_DRAFT_KEY, None)
     context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
@@ -224,7 +225,7 @@ async def handle_menu_keep_callback(
     query = update.callback_query
     if query is None or query.message is None:
         return ConversationHandler.END
-    await query.answer()
+    await safe_answer_callback_query(query)
     resume_state = context.user_data.get(REPORT_FLOW_STATE_KEY, REPORT_DESCRIPTION)
     if not isinstance(resume_state, int):
         resume_state = REPORT_DESCRIPTION

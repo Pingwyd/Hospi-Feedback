@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.sessions import has_valid_access_session
+from bot.telegram_utils import safe_answer_callback_query
 
 
 async def ensure_session_or_prompt(
@@ -18,7 +19,7 @@ async def ensure_session_or_prompt(
             "Your session expired. Send /start and enter the access code again."
         )
     elif update.callback_query is not None:
-        await update.callback_query.answer()
+        await safe_answer_callback_query(update.callback_query)
         await update.callback_query.message.reply_text(
             "Your session expired. Send /start and enter the access code again."
         )

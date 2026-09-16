@@ -19,6 +19,7 @@ from bot.constants import (
     REPORT_FLOW_STATE_KEY,
     REPORT_MEMBER,
     REPORT_PHOTO,
+    REPORT_PHOTOS_DONE_CALLBACK,
     REPORT_SEVERITY,
     SKIP_CALLBACK,
 )
@@ -26,7 +27,13 @@ from bot.handlers.auth_gate import ensure_session_or_prompt
 from bot.handlers.menu import show_main_menu
 from bot.handlers.persistent_keyboard import try_handle_persistent_keyboard
 from bot.hashing import hash_telegram_identifier
-from bot.keyboards import confirm_keyboard, severity_keyboard, skip_keyboard
+from bot.keyboards import (
+    confirm_keyboard,
+    report_photo_keyboard,
+    severity_keyboard,
+    skip_keyboard,
+)
+from bot.telegram_utils import safe_answer_callback_query
 from bot.messages import send_with_delete_button
 from bot.report_labels import report_type_label
 from bot.sessions import access_token
@@ -108,7 +115,7 @@ async def receive_member_text(
 async def skip_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     if query is not None:
-        await query.answer()
+        await safe_answer_callback_query(query)
         message = query.message
     else:
         message = update.message
@@ -140,7 +147,7 @@ async def receive_severity(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     if query is None or query.data is None:
         return REPORT_SEVERITY
-    await query.answer()
+    await safe_answer_callback_query(query)
     if query.data == SKIP_CALLBACK:
         context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_PHOTO
         return await _ask_photo(query.message, context)
@@ -155,25 +162,54 @@ async def receive_severity(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def _ask_photo(message, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_PHOTO
     await message.reply_text(
-        "Optional: send one photo, or tap Skip.",
+        "Optional: send one or more photos, then tap Done. Or tap Skip photos.",
         reply_markup=skip_keyboard(),
     )
     return REPORT_PHOTO
+
+
+def _photo_file_ids(draft: dict[str, Any]) -> list[str]:
+    raw = draft.get("photo_file_ids")
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, str) and item]
+    legacy = draft.get("photo_file_id")
+    if isinstance(legacy, str) and legacy:
+        return [legacy]
+    return []
 
 
 async def receive_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.message is None or not update.message.photo:
         return REPORT_PHOTO
     photo = update.message.photo[-1]
-    _draft(context.user_data)["photo_file_id"] = photo.file_id
-    return await _show_confirm(update.message, context)
+    draft = _draft(context.user_data)
+    file_ids = _photo_file_ids(draft)
+    if photo.file_id not in file_ids:
+        file_ids.append(photo.file_id)
+    draft["photo_file_ids"] = file_ids
+    draft.pop("photo_file_id", None)
+    await update.message.reply_text(
+        f"Photo added ({len(file_ids)} total). Send more, tap Done, or Skip photos.",
+        reply_markup=report_photo_keyboard(photo_count=len(file_ids)),
+    )
+    return REPORT_PHOTO
+
+
+async def finish_report_photos(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    if query is None or query.message is None:
+        return REPORT_PHOTO
+    await safe_answer_callback_query(query)
+    return await _show_confirm(query.message, context)
 
 
 async def skip_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     if query is None:
         return REPORT_PHOTO
-    await query.answer()
+    await safe_answer_callback_query(query)
     if query.message is None:
         return REPORT_PHOTO
     return await _show_confirm(query.message, context)
@@ -187,7 +223,11 @@ async def _show_confirm(message, context: ContextTypes.DEFAULT_TYPE) -> int:
         description=draft.get("description", ""),
         member=draft.get("reported_member_name") or "None",
         severity=draft.get("severity") or "None",
-        photo="Yes" if draft.get("photo_file_id") else "No",
+        photo=(
+            f"{len(_photo_file_ids(draft))} attached"
+            if _photo_file_ids(draft)
+            else "No"
+        ),
         privacy=PRIVACY_NOTICE,
     )
     context.user_data[REPORT_FLOW_STATE_KEY] = REPORT_CONFIRM
@@ -199,7 +239,7 @@ async def confirm_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     query = update.callback_query
     if query is None or query.message is None:
         return REPORT_CONFIRM
-    await query.answer()
+    await safe_answer_callback_query(query)
     if query.data == CONFIRM_CANCEL:
         context.user_data.pop(REPORT_DRAFT_KEY, None)
         context.user_data.pop(REPORT_FLOW_STATE_KEY, None)
@@ -225,14 +265,13 @@ async def confirm_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             severity=draft.get("severity"),
         )
         ticket_code = str(result["ticket_code"])
-        photo_file_id = draft.get("photo_file_id")
-        if isinstance(photo_file_id, str):
+        for index, photo_file_id in enumerate(_photo_file_ids(draft), start=1):
             telegram_file = await context.bot.get_file(photo_file_id)
             photo_bytes = bytes(await telegram_file.download_as_bytearray())
             await api.upload_attachment(
                 token=token,
                 ticket_code=ticket_code,
-                filename="telegram-photo.jpg",
+                filename=f"telegram-photo-{index}.jpg",
                 content_type="image/jpeg",
                 data=photo_bytes,
             )

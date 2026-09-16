@@ -151,6 +151,26 @@ class HospiApiClient:
             )
         return self._parse_response(response)
 
+    async def upload_attachments_batch(
+        self,
+        *,
+        token: str,
+        ticket_code: str,
+        files: list[tuple[str, bytes, str]],
+    ) -> dict[str, Any]:
+        headers = {"Authorization": f"Bearer {token}"}
+        multipart = [
+            ("files", (filename, data, content_type))
+            for filename, data, content_type in files
+        ]
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.post(
+                f"{self._base_url}/api/reports/ticket/{ticket_code}/attachments/batch",
+                headers=headers,
+                files=multipart,
+            )
+        return self._parse_response(response)
+
     async def fetch_attachment_bytes(
         self,
         *,
