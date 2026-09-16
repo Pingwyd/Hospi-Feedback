@@ -25,6 +25,7 @@ from bot.constants import (
     MENU_KEEP_CALLBACK,
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
     REPORT_CALLBACK_PREFIX,
     REPORT_CONFIRM,
     REPORT_DESCRIPTION,
@@ -67,6 +68,8 @@ from bot.handlers.status import (
     receive_status_code,
     status_chat_message,
     status_chat_photo,
+    quality_command,
+    status_inbound_photo_callback,
     status_pending_photos_callback,
     status_command,
 )
@@ -81,7 +84,7 @@ logger = logging.getLogger(__name__)
 _ALLOWED_UPDATES = ["message", "callback_query"]
 
 _PERSISTENT_KEYBOARD_TEXT_FILTER = filters.Regex(
-    rf"^({PERSISTENT_MENU_LABEL}|{PERSISTENT_CANCEL_LABEL})$"
+    rf"^({PERSISTENT_MENU_LABEL}|{PERSISTENT_CANCEL_LABEL}|{PERSISTENT_QUALITY_LABEL})$"
 )
 
 
@@ -215,6 +218,7 @@ def build_application(settings: BotSettings) -> Application:
     application.add_handler(reporter_conv)
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("quality", quality_command))
     application.add_handler(CommandHandler("link", link_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(
@@ -227,6 +231,13 @@ def build_application(settings: BotSettings) -> Application:
         CallbackQueryHandler(
             status_pending_photos_callback,
             pattern=rf"^({STATUS_PHOTOS_SEND_CALLBACK}|{STATUS_PHOTOS_DISCARD_CALLBACK})$",
+        ),
+        group=1,
+    )
+    application.add_handler(
+        CallbackQueryHandler(
+            status_inbound_photo_callback,
+            pattern=r"^status_inbound_photo:",
         ),
         group=1,
     )

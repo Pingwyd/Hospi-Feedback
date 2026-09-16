@@ -207,6 +207,32 @@ def test_attachment_proxy_wrong_ticket_code_is_404(
     assert response.status_code == 404
 
 
+@patch("app.services.attachment_delivery.fetch_attachment_by_id")
+@patch("app.services.attachment_delivery.fetch_report_by_ticket_hash")
+def test_attachment_proxy_wrong_ticket_code_is_404_with_quality(
+    fetch_report_mock: MagicMock,
+    fetch_attachment_mock: MagicMock,
+    client: TestClient,
+) -> None:
+    fetch_report_mock.return_value = _report_row()
+    fetch_attachment_mock.return_value = _attachment_row()
+    _session_cookie(client)
+    response = client.get(
+        f"/api/reports/ticket/MNOP3456/attachments/{ATTACHMENT_ID}",
+        params={"quality": 70},
+    )
+    assert response.status_code == 404
+
+
+def test_attachment_proxy_rejects_unknown_quality(client: TestClient) -> None:
+    _session_cookie(client)
+    response = client.get(
+        f"/api/reports/ticket/{TICKET_B}/attachments/{ATTACHMENT_ID}",
+        params={"quality": 55},
+    )
+    assert response.status_code == 415
+
+
 @patch("app.services.reporter_reports.fetch_attachments_for_report")
 @patch("app.services.reporter_reports.fetch_messages_for_report")
 @patch("app.services.reporter_reports.fetch_report_by_ticket_hash")

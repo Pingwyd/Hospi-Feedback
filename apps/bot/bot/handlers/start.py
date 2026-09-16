@@ -15,6 +15,7 @@ from bot.constants import (
 )
 from bot.handlers.menu import prompt_expired_session_access_code, show_main_menu
 from bot.keyboards import remove_persistent_keyboard
+from bot.inbound_photo_delivery import clear_inbound_photo_prefs
 from bot.live_relay import clear_status_ticket_session
 from bot.persistent_keyboard_lifecycle import (
     attach_persistent_keyboard,
@@ -49,6 +50,7 @@ async def start_command(
         await show_main_menu(update, context)
         return ConversationHandler.END
     clear_access_session(context.user_data)
+    clear_inbound_photo_prefs(context.user_data)
     context.user_data.pop(PERSISTENT_KEYBOARD_ATTACHED_KEY, None)
     set_awaiting_access_code(context.user_data)
     await update.message.reply_text(

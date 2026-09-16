@@ -11,6 +11,7 @@ from bot.constants import (
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_KEYBOARD_ATTACHED_KEY,
     PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
     REPORT_DRAFT_KEY,
     REPORT_MEMBER,
     REPORT_SEVERITY,
@@ -34,10 +35,13 @@ def _store_valid_session(user_data: dict) -> None:
     store_access_session(user_data, token="session-token", expires_at=expires)
 
 
-def test_persistent_reply_keyboard_has_menu_and_cancel() -> None:
+def test_persistent_reply_keyboard_has_menu_cancel_and_quality() -> None:
     keyboard = persistent_reply_keyboard()
-    labels = [button.text for row in keyboard.keyboard for button in row]
-    assert labels == [PERSISTENT_MENU_LABEL, PERSISTENT_CANCEL_LABEL]
+    rows = [[button.text for button in row] for row in keyboard.keyboard]
+    assert rows == [
+        [PERSISTENT_MENU_LABEL, PERSISTENT_CANCEL_LABEL],
+        [PERSISTENT_QUALITY_LABEL],
+    ]
 
 
 def test_remove_persistent_keyboard_returns_markup() -> None:
@@ -91,6 +95,23 @@ async def test_try_handle_persistent_keyboard_routes_cancel() -> None:
 
     assert result == ConversationHandler.END
     cancel_command.assert_awaited_once_with(update, context)
+
+
+@pytest.mark.asyncio
+async def test_try_handle_persistent_keyboard_routes_quality() -> None:
+    update = MagicMock()
+    update.message = AsyncMock()
+    update.message.text = PERSISTENT_QUALITY_LABEL
+    context = MagicMock()
+
+    with patch(
+        "bot.handlers.status.quality_command",
+        new=AsyncMock(),
+    ) as quality_command:
+        result = await try_handle_persistent_keyboard(update, context)
+
+    assert result == ConversationHandler.END
+    quality_command.assert_awaited_once_with(update, context)
 
 
 @pytest.mark.asyncio

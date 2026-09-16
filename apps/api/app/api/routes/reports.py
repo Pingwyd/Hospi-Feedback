@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from pydantic import BaseModel, Field
 
 from app.api.deps import require_access_session
+from app.core.image_upload import ALLOWED_DELIVERY_JPEG_QUALITIES
 from app.core.settings import Settings, get_settings
+from app.exceptions.reports import AttachmentRejectedError
 from app.services.admin_ws import broadcast_admin_event
 from app.services.attachment_delivery import fetch_reporter_attachment_bytes
 from app.services.reporter_reports import (
@@ -237,11 +239,18 @@ def fetch_ticket_attachment(
     attachment_id: str,
     _session: Annotated[dict[str, Any], Depends(require_access_session)],
     settings: Settings = Depends(get_settings),
+    quality: int | None = Query(default=None),
 ) -> Response:
+    delivery_quality: int | None = None
+    if quality is not None:
+        if quality not in ALLOWED_DELIVERY_JPEG_QUALITIES:
+            raise AttachmentRejectedError("Unsupported delivery quality.")
+        delivery_quality = quality
     content, content_type = fetch_reporter_attachment_bytes(
         ticket_code=ticket_code,
         attachment_id=attachment_id,
         settings=settings,
+        delivery_jpeg_quality=delivery_quality,
     )
     return Response(
         content=content,

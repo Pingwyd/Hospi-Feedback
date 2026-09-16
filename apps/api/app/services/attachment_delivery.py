@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from app.core.admin_auth import AdminContext
+from app.core.image_upload import transcode_image_for_delivery
 from app.core.settings import Settings
 from app.core.ticket_code import hash_ticket_code, is_valid_ticket_code_format
 from app.exceptions.auth import PermissionDeniedError
-from app.exceptions.reports import ReportNotFoundError
+from app.exceptions.reports import AttachmentRejectedError, ReportNotFoundError
 from app.integrations.reports_store import (
     fetch_attachment_by_id,
     fetch_report_by_id,
@@ -131,6 +132,7 @@ def fetch_reporter_attachment_bytes(
     ticket_code: str,
     attachment_id: str,
     settings: Settings,
+    delivery_jpeg_quality: int | None = None,
 ) -> tuple[bytes, str]:
     if not is_valid_ticket_code_format(ticket_code):
         raise ReportNotFoundError("Attachment not found.")
@@ -146,7 +148,19 @@ def fetch_reporter_attachment_bytes(
     )
     if attachment is None or str(attachment.get("report_id")) != str(report["id"]):
         raise ReportNotFoundError("Attachment not found.")
-    return _download_attachment_bytes(attachment=attachment, settings=settings)
+    content, content_type = _download_attachment_bytes(
+        attachment=attachment,
+        settings=settings,
+    )
+    if delivery_jpeg_quality is None:
+        return content, content_type
+    try:
+        return transcode_image_for_delivery(
+            content,
+            jpeg_quality=delivery_jpeg_quality,
+        )
+    except AttachmentRejectedError as exc:
+        raise ReportNotFoundError("Attachment not found.") from exc
 
 
 def fetch_admin_attachment_bytes(

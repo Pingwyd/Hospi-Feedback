@@ -59,6 +59,83 @@ async def test_fetch_attachment_bytes_raises_on_404() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_attachment_bytes_passes_quality_query_param() -> None:
+    response = httpx.Response(
+        200,
+        content=b"jpeg-bytes",
+        headers={"content-type": "image/jpeg"},
+        request=httpx.Request("GET", "http://api.test/x"),
+    )
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("bot.api_client.httpx.AsyncClient", return_value=mock_client):
+        client = HospiApiClient(base_url="http://api.test")
+        await client.fetch_attachment_bytes(
+            token="session-token",
+            preview_url="/api/reports/ticket/ABCD1234/attachments/a1",
+            jpeg_quality=70,
+        )
+
+    call_kwargs = mock_client.get.await_args.kwargs
+    assert call_kwargs["params"] == {"quality": "70"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_attachment_bytes_surfaces_404_with_quality_param() -> None:
+    response = httpx.Response(
+        404,
+        json={"error": {"code": "not_found", "message": "Attachment not found."}},
+        request=httpx.Request("GET", "http://api.test/x"),
+    )
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("bot.api_client.httpx.AsyncClient", return_value=mock_client):
+        client = HospiApiClient(base_url="http://api.test")
+        with pytest.raises(ApiClientError) as exc_info:
+            await client.fetch_attachment_bytes(
+                token="session-token",
+                preview_url="/api/reports/ticket/WRONG123/attachments/a1",
+                jpeg_quality=70,
+            )
+    assert exc_info.value.status_code == 404
+    assert mock_client.get.await_args.kwargs["params"] == {"quality": "70"}
+
+
+@pytest.mark.asyncio
+async def test_fetch_attachment_bytes_surfaces_415_with_invalid_quality() -> None:
+    response = httpx.Response(
+        415,
+        json={
+            "error": {
+                "code": "unsupported_media_type",
+                "message": "Unsupported delivery quality.",
+            }
+        },
+        request=httpx.Request("GET", "http://api.test/x"),
+    )
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("bot.api_client.httpx.AsyncClient", return_value=mock_client):
+        client = HospiApiClient(base_url="http://api.test")
+        with pytest.raises(ApiClientError) as exc_info:
+            await client.fetch_attachment_bytes(
+                token="session-token",
+                preview_url="/api/reports/ticket/ABCD1234/attachments/a1",
+                jpeg_quality=55,
+            )
+    assert exc_info.value.status_code == 415
+
+
+@pytest.mark.asyncio
 async def test_upload_attachment_link_to_thread_query() -> None:
     response = httpx.Response(
         201,

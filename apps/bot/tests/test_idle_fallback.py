@@ -14,6 +14,7 @@ from bot.constants import (
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_KEYBOARD_ATTACHED_KEY,
     PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
     REPORT_DESCRIPTION,
     REPORT_DRAFT_KEY,
     REPORT_FLOW_STATE_KEY,
@@ -159,7 +160,11 @@ async def test_idle_nudge_skips_menu_and_cancel_labels() -> None:
     context = MagicMock()
     context.user_data = _idle_user_data()
 
-    for label in (PERSISTENT_MENU_LABEL, PERSISTENT_CANCEL_LABEL):
+    for label in (
+        PERSISTENT_MENU_LABEL,
+        PERSISTENT_CANCEL_LABEL,
+        PERSISTENT_QUALITY_LABEL,
+    ):
         update = MagicMock()
         update.message = AsyncMock()
         update.message.text = label
