@@ -23,6 +23,7 @@ import {
   shouldShowMessageText,
 } from "@/lib/messages/attachments";
 import { formatMaxAttachmentSize } from "@/lib/attachments/constants";
+import { useComposeEnterToSend } from "@/lib/hooks/useComposeEnterToSend";
 import { usePhotoConfirmFlow } from "@/lib/hooks/usePhotoConfirmFlow";
 import { useReporterTicketWebSocket } from "@/lib/hooks/useReporterTicketWebSocket";
 
@@ -203,8 +204,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     },
   });
 
-  async function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const sendMessage = useCallback(async () => {
     if (!message.trim() || data?.status === "closed") {
       return;
     }
@@ -228,7 +228,19 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     } finally {
       setSending(false);
     }
+  }, [data?.status, message, ticketCode]);
+
+  async function handleMessageSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await sendMessage();
   }
+
+  const handleMessageKeyDown = useComposeEnterToSend({
+    canSend: !sending && Boolean(message.trim()) && data?.status !== "closed",
+    onSend: () => {
+      void sendMessage();
+    },
+  });
 
   function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
     if (data?.status === "closed" || photoFlow.isBusy || photoFlow.confirming) {
@@ -395,6 +407,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
               rows={3}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
+              onKeyDown={handleMessageKeyDown}
               className="w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-ink outline-none ring-sage/30 focus:border-sage focus:ring-2"
               placeholder="Follow up with the team"
             />
