@@ -28,7 +28,9 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
 
 export type AuditLogEntry = {
   id: string;
-  admin_id: string;
+  admin_id: string | null;
+  admin_display_name: string;
+  admin_role: string | null;
   report_id: string | null;
   action: string;
   detail: Record<string, unknown> | null;

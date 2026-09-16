@@ -78,6 +78,28 @@ def list_admins(
     return _request_json("GET", url, headers=_service_headers(service_role_key))
 
 
+def fetch_admins_by_ids(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    admin_ids: list[str],
+) -> dict[str, dict[str, Any]]:
+    """Access pattern: O(1) lookup by id for a small set of audit row actors."""
+    unique_ids = [admin_id for admin_id in dict.fromkeys(admin_ids) if admin_id]
+    if not unique_ids:
+        return {}
+    ids_clause = ",".join(unique_ids)
+    query = urllib.parse.urlencode(
+        {
+            "select": "id,full_name,role,active",
+            "id": f"in.({ids_clause})",
+        }
+    )
+    url = f"{supabase_url.rstrip('/')}/rest/v1/admins?{query}"
+    rows = _request_json("GET", url, headers=_service_headers(service_role_key))
+    return {str(row["id"]): row for row in rows if row.get("id")}
+
+
 def insert_admin_row(
     *,
     supabase_url: str,

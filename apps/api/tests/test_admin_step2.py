@@ -103,6 +103,7 @@ def test_audit_log_forbidden_for_non_viewer_role(
     assert response.status_code == 403
 
 
+@patch("app.services.admin_audit.fetch_admins_by_ids")
 @patch("app.services.admin_audit.list_audit_log_entries")
 @patch("app.core.admin_auth.fetch_admin_permissions")
 @patch("app.core.admin_auth.fetch_active_admin")
@@ -110,6 +111,7 @@ def test_audit_log_allowed_for_asst_head(
     fetch_admin_mock: MagicMock,
     fetch_permissions_mock: MagicMock,
     list_audit_mock: MagicMock,
+    fetch_admins_by_ids_mock: MagicMock,
     client: TestClient,
 ) -> None:
     fetch_admin_mock.return_value = AdminRecord(
@@ -131,6 +133,14 @@ def test_audit_log_allowed_for_asst_head(
             "created_at": "2026-09-01T10:00:00Z",
         }
     ]
+    fetch_admins_by_ids_mock.return_value = {
+        ADMIN_ID: {
+            "id": ADMIN_ID,
+            "full_name": "Assistant Head",
+            "role": "asst_head",
+            "active": True,
+        },
+    }
     token = _issue_admin_token()
     response = client.get(
         "/api/admin/audit-log",
@@ -138,6 +148,77 @@ def test_audit_log_allowed_for_asst_head(
     )
     assert response.status_code == 200
     assert response.json()["data"][0]["action"] == "status_changed"
+
+
+OTHER_ADMIN_ID = "33333333-3333-3333-3333-333333333333"
+
+
+@patch("app.services.admin_audit.fetch_admins_by_ids")
+@patch("app.services.admin_audit.list_audit_log_entries")
+@patch("app.core.admin_auth.fetch_admin_permissions")
+@patch("app.core.admin_auth.fetch_active_admin")
+def test_audit_log_includes_resolved_admin_display_names(
+    fetch_admin_mock: MagicMock,
+    fetch_permissions_mock: MagicMock,
+    list_audit_mock: MagicMock,
+    fetch_admins_by_ids_mock: MagicMock,
+    client: TestClient,
+) -> None:
+    fetch_admin_mock.return_value = AdminRecord(
+        id=ADMIN_ID,
+        full_name="Assistant Head",
+        role="asst_head",
+        subunit=None,
+        aliases=(),
+        active=True,
+    )
+    fetch_permissions_mock.return_value = frozenset({"view"})
+    list_audit_mock.return_value = [
+        {
+            "id": "99999999-9999-9999-9999-999999999999",
+            "admin_id": ADMIN_ID,
+            "report_id": REPORT_ID,
+            "action": "status_changed",
+            "detail": {},
+            "created_at": "2026-09-01T10:00:00Z",
+        },
+        {
+            "id": "88888888-8888-8888-8888-888888888888",
+            "admin_id": OTHER_ADMIN_ID,
+            "report_id": None,
+            "action": "other",
+            "detail": {},
+            "created_at": "2026-09-01T09:00:00Z",
+        },
+        {
+            "id": "77777777-7777-7777-7777-777777777777",
+            "admin_id": None,
+            "report_id": REPORT_ID,
+            "action": "closed",
+            "detail": {},
+            "created_at": "2026-09-01T08:00:00Z",
+        },
+    ]
+    fetch_admins_by_ids_mock.return_value = {
+        ADMIN_ID: {"id": ADMIN_ID, "full_name": "Ada Okonkwo", "role": "hoh", "active": True},
+        OTHER_ADMIN_ID: {
+            "id": OTHER_ADMIN_ID,
+            "full_name": "Backup Admin",
+            "role": "asst_head",
+            "active": True,
+        },
+    }
+    token = _issue_admin_token()
+    response = client.get(
+        "/api/admin/audit-log",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data[0]["admin_display_name"] == "Ada Okonkwo"
+    assert data[0]["admin_role"] == "hoh"
+    assert data[1]["admin_display_name"] == "Backup Admin"
+    assert data[2]["admin_display_name"] == "Former admin (removed)"
 
 
 @patch("app.core.admin_auth.fetch_admin_permissions")
