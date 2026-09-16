@@ -3,22 +3,35 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-export const REPORT_INBOX_STATUS_PARAM = "status";
-export const REPORT_INBOX_KEYWORD_PARAM = "q";
-export const REPORT_INBOX_KEYWORD_DEBOUNCE_MS = 350;
+import {
+  readReportInboxFilters,
+  REPORT_INBOX_FROM_PARAM,
+  REPORT_INBOX_KEYWORD_DEBOUNCE_MS,
+  REPORT_INBOX_KEYWORD_PARAM,
+  REPORT_INBOX_SEVERITY_PARAM,
+  REPORT_INBOX_STATUS_PARAM,
+  REPORT_INBOX_TO_PARAM,
+  REPORT_INBOX_TYPE_PARAM,
+} from "@/lib/report-inbox-filters";
 
-export type ReportInboxUrlFilters = {
-  status: string;
-  keyword: string;
-};
+export {
+  REPORT_INBOX_FROM_PARAM,
+  REPORT_INBOX_KEYWORD_DEBOUNCE_MS,
+  REPORT_INBOX_KEYWORD_PARAM,
+  REPORT_INBOX_SEVERITY_PARAM,
+  REPORT_INBOX_STATUS_PARAM,
+  REPORT_INBOX_TO_PARAM,
+  REPORT_INBOX_TYPE_PARAM,
+  readReportInboxFilters,
+  type ReportInboxUrlFilters,
+} from "@/lib/report-inbox-filters";
 
-export function readReportInboxFilters(
-  searchParams: Pick<URLSearchParams, "get">,
-): ReportInboxUrlFilters {
-  return {
-    status: searchParams.get(REPORT_INBOX_STATUS_PARAM) ?? "",
-    keyword: searchParams.get(REPORT_INBOX_KEYWORD_PARAM) ?? "",
-  };
+function setOrDeleteParam(params: URLSearchParams, key: string, value: string) {
+  if (value) {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
 }
 
 export function useReportInboxUrlState() {
@@ -26,7 +39,8 @@ export function useReportInboxUrlState() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const { status, keyword } = readReportInboxFilters(searchParams);
+  const filters = readReportInboxFilters(searchParams);
+  const { status, keyword, type, severity, from, to } = filters;
   const [keywordDraft, setKeywordDraft] = useState(keyword);
 
   useEffect(() => {
@@ -46,11 +60,43 @@ export function useReportInboxUrlState() {
   const setStatus = useCallback(
     (nextStatus: string) => {
       replaceSearchParams((params) => {
-        if (nextStatus) {
-          params.set(REPORT_INBOX_STATUS_PARAM, nextStatus);
-        } else {
-          params.delete(REPORT_INBOX_STATUS_PARAM);
-        }
+        setOrDeleteParam(params, REPORT_INBOX_STATUS_PARAM, nextStatus);
+      });
+    },
+    [replaceSearchParams],
+  );
+
+  const setType = useCallback(
+    (nextType: string) => {
+      replaceSearchParams((params) => {
+        setOrDeleteParam(params, REPORT_INBOX_TYPE_PARAM, nextType);
+      });
+    },
+    [replaceSearchParams],
+  );
+
+  const setSeverity = useCallback(
+    (nextSeverity: string) => {
+      replaceSearchParams((params) => {
+        setOrDeleteParam(params, REPORT_INBOX_SEVERITY_PARAM, nextSeverity);
+      });
+    },
+    [replaceSearchParams],
+  );
+
+  const setFrom = useCallback(
+    (nextFrom: string) => {
+      replaceSearchParams((params) => {
+        setOrDeleteParam(params, REPORT_INBOX_FROM_PARAM, nextFrom);
+      });
+    },
+    [replaceSearchParams],
+  );
+
+  const setTo = useCallback(
+    (nextTo: string) => {
+      replaceSearchParams((params) => {
+        setOrDeleteParam(params, REPORT_INBOX_TO_PARAM, nextTo);
       });
     },
     [replaceSearchParams],
@@ -64,11 +110,7 @@ export function useReportInboxUrlState() {
 
     const timer = window.setTimeout(() => {
       replaceSearchParams((params) => {
-        if (trimmedDraft) {
-          params.set(REPORT_INBOX_KEYWORD_PARAM, trimmedDraft);
-        } else {
-          params.delete(REPORT_INBOX_KEYWORD_PARAM);
-        }
+        setOrDeleteParam(params, REPORT_INBOX_KEYWORD_PARAM, trimmedDraft);
       });
     }, REPORT_INBOX_KEYWORD_DEBOUNCE_MS);
 
@@ -80,8 +122,16 @@ export function useReportInboxUrlState() {
   return {
     status,
     keyword,
+    type,
+    severity,
+    from,
+    to,
     keywordDraft,
     setKeywordDraft,
     setStatus,
+    setType,
+    setSeverity,
+    setFrom,
+    setTo,
   };
 }

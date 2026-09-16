@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, FileDown, Filter, Search } from "lucide-react";
+import { AlertCircle, Calendar, FileDown, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { AdminSelect } from "@/components/admin/AdminSelect";
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import { ApiError } from "@/lib/api/admin-fetch";
@@ -15,7 +16,14 @@ import {
 import { useAdminReportsList } from "@/lib/hooks/useAdminReportsList";
 import { useAdminWebSocket } from "@/lib/hooks/useAdminWebSocket";
 import { useReportInboxUrlState } from "@/lib/hooks/useReportInboxUrlState";
+import {
+  reportInboxFiltersToListApi,
+  type ReportInboxUrlFilters,
+} from "@/lib/report-inbox-filters";
 import { invalidateAdminReportLists } from "@/lib/query/admin-report-queries";
+
+const FIELD_INPUT_CLASS =
+  "w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -27,6 +35,25 @@ const STATUS_OPTIONS = [
   { value: "resolved", label: "Resolved" },
   { value: "closed", label: "Closed" },
   { value: "marked_false", label: "Marked false" },
+];
+
+const TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "complaint", label: "Complaint" },
+  { value: "suggestion", label: "Suggestion" },
+  { value: "recognition", label: "Recognition" },
+];
+
+const SEVERITY_OPTIONS = [
+  { value: "", label: "All severities" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
+
+const EXPORT_FORMAT_OPTIONS = [
+  { value: "pdf", label: "PDF" },
+  { value: "docx", label: "DOCX" },
 ];
 
 function statusBadgeClass(status: string | null | undefined): string {
@@ -43,13 +70,25 @@ function statusBadgeClass(status: string | null | undefined): string {
   }
 }
 
-function exportFilterSummary(status: string, keyword: string): string {
+function exportFilterSummary(filters: ReportInboxUrlFilters): string {
   const parts: string[] = [];
-  if (status) {
-    parts.push(`status: ${status.replace(/_/g, " ")}`);
+  if (filters.status) {
+    parts.push(`status: ${filters.status.replace(/_/g, " ")}`);
   }
-  if (keyword) {
-    parts.push(`keyword: "${keyword}"`);
+  if (filters.keyword) {
+    parts.push(`keyword: "${filters.keyword}"`);
+  }
+  if (filters.type) {
+    parts.push(`type: ${filters.type}`);
+  }
+  if (filters.severity) {
+    parts.push(`severity: ${filters.severity}`);
+  }
+  if (filters.from) {
+    parts.push(`from: ${filters.from}`);
+  }
+  if (filters.to) {
+    parts.push(`to: ${filters.to}`);
   }
   if (parts.length === 0) {
     return "All reports (no filters applied)";
@@ -60,8 +99,33 @@ function exportFilterSummary(status: string, keyword: string): string {
 export function ReportInbox() {
   const queryClient = useQueryClient();
   const { hasPermission } = useAdminSession();
-  const { status, keyword, keywordDraft, setKeywordDraft, setStatus } =
-    useReportInboxUrlState();
+  const {
+    status,
+    keyword,
+    type,
+    severity,
+    from,
+    to,
+    keywordDraft,
+    setKeywordDraft,
+    setStatus,
+    setType,
+    setSeverity,
+    setFrom,
+    setTo,
+  } = useReportInboxUrlState();
+
+  const inboxFilters = useMemo(
+    (): ReportInboxUrlFilters => ({
+      status,
+      keyword,
+      type,
+      severity,
+      from,
+      to,
+    }),
+    [from, keyword, severity, status, to, type],
+  );
   const [liveNotice, setLiveNotice] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<AdminExportFormat>("pdf");
   const [exporting, setExporting] = useState(false);
@@ -73,7 +137,7 @@ export function ReportInbox() {
     isPending,
     isFetching,
     error,
-  } = useAdminReportsList({ status, keyword, limit: 100 });
+  } = useAdminReportsList({ ...inboxFilters, limit: 100 });
 
   useAdminWebSocket({
     enabled: true,
@@ -101,10 +165,7 @@ export function ReportInbox() {
     setExportError(null);
     try {
       await downloadAdminReportExport(
-        {
-          status: status || undefined,
-          keyword: keyword || undefined,
-        },
+        reportInboxFiltersToListApi(inboxFilters),
         exportFormat,
       );
     } catch (err) {
@@ -158,25 +219,61 @@ export function ReportInbox() {
               value={keywordDraft}
               onChange={(event) => setKeywordDraft(event.target.value)}
               placeholder="Search description or member name"
-              className="w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+              className={FIELD_INPUT_CLASS}
+            />
+          </label>
+          <AdminSelect
+            label={
+              <span className="flex items-center gap-2">
+                <Filter size={16} aria-hidden="true" />
+                Status
+              </span>
+            }
+            value={status}
+            options={STATUS_OPTIONS}
+            onChange={setStatus}
+            placeholder="All statuses"
+          />
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <AdminSelect
+            label="Report type"
+            value={type}
+            options={TYPE_OPTIONS}
+            onChange={setType}
+            placeholder="All types"
+          />
+          <AdminSelect
+            label="Severity"
+            value={severity}
+            options={SEVERITY_OPTIONS}
+            onChange={setSeverity}
+            placeholder="All severities"
+          />
+          <label className="block">
+            <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
+              <Calendar size={16} aria-hidden="true" />
+              Submitted from
+            </span>
+            <input
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              className={FIELD_INPUT_CLASS}
             />
           </label>
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Filter size={16} aria-hidden="true" />
-              Status
+              <Calendar size={16} aria-hidden="true" />
+              Submitted to
             </span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-              className="w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value || "all"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <input
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              className={FIELD_INPUT_CLASS}
+            />
           </label>
         </div>
 
@@ -185,26 +282,25 @@ export function ReportInbox() {
             <p className="text-sm text-ink/70">
               Export uses the current URL filters:{" "}
               <span className="font-medium text-ink">
-                {exportFilterSummary(status, keyword)}
+                {exportFilterSummary(inboxFilters)}
               </span>
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink/50">
-                  Format
-                </span>
-                <select
+              <div className="min-w-[8rem]">
+                <AdminSelect
+                  label={
+                    <span className="text-xs font-medium uppercase tracking-wide text-ink/50">
+                      Format
+                    </span>
+                  }
                   value={exportFormat}
-                  onChange={(event) =>
-                    setExportFormat(event.target.value as AdminExportFormat)
+                  options={EXPORT_FORMAT_OPTIONS}
+                  onChange={(value) =>
+                    setExportFormat(value as AdminExportFormat)
                   }
                   disabled={exporting}
-                  className="rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2 disabled:opacity-60"
-                >
-                  <option value="pdf">PDF</option>
-                  <option value="docx">DOCX</option>
-                </select>
-              </label>
+                />
+              </div>
               <button
                 type="button"
                 disabled={exporting}
