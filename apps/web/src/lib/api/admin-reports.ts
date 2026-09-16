@@ -55,6 +55,8 @@ export type ReportDetail = {
 export type ReportListFilters = {
   status?: string;
   keyword?: string;
+  report_type?: string;
+  severity?: string;
   created_from?: string;
   created_to?: string;
   limit?: number;
@@ -67,6 +69,8 @@ export async function listAdminReports(
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
   if (filters.keyword) params.set("keyword", filters.keyword);
+  if (filters.report_type) params.set("report_type", filters.report_type);
+  if (filters.severity) params.set("severity", filters.severity);
   if (filters.created_from) params.set("created_from", filters.created_from);
   if (filters.created_to) params.set("created_to", filters.created_to);
   if (filters.limit) params.set("limit", String(filters.limit));

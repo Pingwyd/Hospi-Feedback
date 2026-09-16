@@ -342,6 +342,8 @@ def list_reports(
     service_role_key: str,
     status: str | None = None,
     keyword: str | None = None,
+    report_type: str | None = None,
+    severity: str | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
     limit: int = 50,
@@ -355,6 +357,10 @@ def list_reports(
     }
     if status:
         params["status"] = f"eq.{status}"
+    if report_type:
+        params["report_type"] = f"eq.{report_type}"
+    if severity:
+        params["severity"] = f"eq.{severity}"
     if keyword:
         params["or"] = (
             f"(description.ilike.*{keyword}*,reported_member_name.ilike.*{keyword}*)"

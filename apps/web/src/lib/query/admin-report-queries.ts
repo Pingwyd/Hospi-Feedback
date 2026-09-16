@@ -4,10 +4,12 @@ import {
 } from "@tanstack/react-query";
 
 import { listAdminReports } from "@/lib/api/admin-reports";
+import {
+  reportInboxFiltersToListApi,
+  type ReportInboxUrlFilters,
+} from "@/lib/report-inbox-filters";
 
-export type AdminReportsListFilters = {
-  status: string;
-  keyword: string;
+export type AdminReportsListFilters = ReportInboxUrlFilters & {
   limit?: number;
 };
 
@@ -27,8 +29,7 @@ export function adminReportsListQueryOptions(filters: AdminReportsListFilters) {
     queryKey: adminReportKeys.list({ ...filters, limit }),
     queryFn: () =>
       listAdminReports({
-        status: filters.status || undefined,
-        keyword: filters.keyword || undefined,
+        ...reportInboxFiltersToListApi(filters),
         limit,
       }),
     staleTime: ADMIN_REPORTS_LIST_STALE_MS,

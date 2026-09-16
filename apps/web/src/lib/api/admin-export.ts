@@ -7,6 +7,8 @@ export type AdminExportFormat = "pdf" | "docx";
 export type AdminExportFilters = {
   status?: string;
   keyword?: string;
+  report_type?: string;
+  severity?: string;
   created_from?: string;
   created_to?: string;
 };
@@ -22,6 +24,12 @@ export function buildAdminExportSearchParams(
   }
   if (filters.keyword) {
     params.set("keyword", filters.keyword);
+  }
+  if (filters.report_type) {
+    params.set("report_type", filters.report_type);
+  }
+  if (filters.severity) {
+    params.set("severity", filters.severity);
   }
   if (filters.created_from) {
     params.set("created_from", filters.created_from);

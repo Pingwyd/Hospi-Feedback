@@ -37,6 +37,44 @@ from app.services.recusal_enforcement import (
 from app.services.report_archive import archive_report
 from app.services.reporter_ws import broadcast_reporter_event
 
+REPORT_LIST_STATUSES = frozenset(
+    {
+        "new",
+        "under_review",
+        "assigned",
+        "in_progress",
+        "resolved",
+        "escalated",
+        "closed",
+        "marked_false",
+    }
+)
+REPORT_LIST_TYPES = frozenset({"complaint", "suggestion", "recognition"})
+REPORT_LIST_SEVERITIES = frozenset({"low", "medium", "high"})
+
+
+def validate_report_list_filters(
+    *,
+    status: str | None,
+    report_type: str | None,
+    severity: str | None,
+) -> None:
+    if status is not None and status not in REPORT_LIST_STATUSES:
+        raise AdminReportValidationError(
+            "Invalid status filter. "
+            f"Allowed values: {', '.join(sorted(REPORT_LIST_STATUSES))}."
+        )
+    if report_type is not None and report_type not in REPORT_LIST_TYPES:
+        raise AdminReportValidationError(
+            "Invalid report_type filter. "
+            f"Allowed values: {', '.join(sorted(REPORT_LIST_TYPES))}."
+        )
+    if severity is not None and severity not in REPORT_LIST_SEVERITIES:
+        raise AdminReportValidationError(
+            "Invalid severity filter. "
+            f"Allowed values: {', '.join(sorted(REPORT_LIST_SEVERITIES))}."
+        )
+
 
 def _store_kwargs(settings: Settings) -> dict[str, str]:
     return {
@@ -75,16 +113,25 @@ def list_admin_reports(
     settings: Settings,
     status: str | None = None,
     keyword: str | None = None,
+    report_type: str | None = None,
+    severity: str | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
     _require_permission(admin, "view")
+    validate_report_list_filters(
+        status=status,
+        report_type=report_type,
+        severity=severity,
+    )
     return list_reports(
         **_store_kwargs(settings),
         status=status,
         keyword=keyword,
+        report_type=report_type,
+        severity=severity,
         created_from=created_from,
         created_to=created_to,
         limit=limit,

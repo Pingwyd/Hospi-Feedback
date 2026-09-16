@@ -19,6 +19,8 @@ def export_filtered_reports_route(
     export_format: ExportFormat = Query(default="pdf", alias="format"),
     status: str | None = Query(default=None),
     keyword: str | None = Query(default=None),
+    report_type: str | None = Query(default=None),
+    severity: str | None = Query(default=None),
     created_from: str | None = Query(default=None),
     created_to: str | None = Query(default=None),
 ) -> Response:
@@ -28,6 +30,8 @@ def export_filtered_reports_route(
         export_format=export_format,
         status=status,
         keyword=keyword,
+        report_type=report_type,
+        severity=severity,
         created_from=created_from,
         created_to=created_to,
     )
