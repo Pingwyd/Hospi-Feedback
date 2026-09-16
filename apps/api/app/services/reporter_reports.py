@@ -20,6 +20,8 @@ from app.exceptions.reports import (
 )
 from app.integrations.reports_store import (
     count_attachments_for_report,
+    delete_attachment_by_id,
+    delete_message_by_id,
     fetch_attachments_for_report,
     fetch_messages_for_report,
     fetch_report_by_ticket_hash,
@@ -31,8 +33,10 @@ from app.integrations.reports_store import (
 )
 from app.integrations.supabase_storage import delete_object, upload_object
 from app.services.attachment_delivery import (
+    apply_message_attachment_fields,
     build_ticket_attachment_views,
     reporter_attachment_preview_path,
+    serialize_attachment_summary,
 )
 
 ReportType = Literal["complaint", "suggestion", "recognition"]
@@ -138,9 +142,7 @@ def get_ticket_status(ticket_code: str, *, settings: Settings) -> dict[str, Any]
             "content": message["content"],
             "created_at": message["created_at"],
         }
-        linked = by_message_id.get(message_id)
-        if linked is not None:
-            entry["attachment"] = linked
+        apply_message_attachment_fields(entry, by_message_id.get(message_id))
         serialized_messages.append(entry)
     return {
         "status": report["status"],
@@ -254,6 +256,105 @@ def upload_report_attachment(
             object_path=storage_path,
         )
         raise
+
+
+def upload_followup_attachments_batch(
+    ticket_code: str,
+    files_bytes: list[bytes],
+    *,
+    settings: Settings,
+) -> dict[str, Any]:
+    if not files_bytes:
+        raise ValueError("At least one file is required.")
+    if len(files_bytes) == 1:
+        single = upload_report_attachment(
+            ticket_code,
+            files_bytes[0],
+            settings=settings,
+            link_to_thread=True,
+        )
+        attachment_summary = serialize_attachment_summary(
+            attachment={
+                "id": single["id"],
+                "file_type": single["file_type"],
+                "uploaded_at": single["uploaded_at"],
+            },
+            preview_path=str(single["preview_url"]),
+        )
+        return {
+            "report_id": single["report_id"],
+            "message_id": single["message_id"],
+            "attachments": [attachment_summary],
+        }
+
+    report = _load_report_by_ticket_code(ticket_code, settings=settings)
+    if str(report.get("status") or "") in ReporterLockedStatus:
+        raise ReportClosedError("Report is closed.")
+    report_id = str(report["id"])
+    store = _store_kwargs(settings)
+    message = insert_reporter_message(
+        **store,
+        report_id=report_id,
+        content=FOLLOWUP_PHOTO_MESSAGE,
+    )
+    message_id = str(message["id"])
+    uploaded_paths: list[str] = []
+    attachment_ids: list[str] = []
+    summaries: list[dict[str, str]] = []
+    try:
+        for file_bytes in files_bytes:
+            stripped, mime, extension = prepare_image_for_storage(
+                file_bytes,
+                max_bytes=settings.report_attachment_max_bytes,
+            )
+            attachment_id = str(uuid.uuid4())
+            storage_path = f"{report_id}/{attachment_id}.{extension}"
+            upload_object(
+                supabase_url=settings.supabase_url,
+                service_role_key=settings.supabase_service_role_key,
+                bucket=settings.report_attachments_bucket,
+                object_path=storage_path,
+                content=stripped,
+                content_type=mime,
+            )
+            uploaded_paths.append(storage_path)
+            attachment = insert_attachment(
+                **store,
+                report_id=report_id,
+                storage_path=storage_path,
+                file_type=mime,
+                message_id=message_id,
+            )
+            attachment_row_id = str(attachment["id"])
+            attachment_ids.append(attachment_row_id)
+            preview_path = reporter_attachment_preview_path(
+                ticket_code,
+                attachment_row_id,
+            )
+            summaries.append(
+                serialize_attachment_summary(
+                    attachment=attachment,
+                    preview_path=preview_path,
+                ),
+            )
+    except Exception:
+        for storage_path in uploaded_paths:
+            delete_object(
+                supabase_url=settings.supabase_url,
+                service_role_key=settings.supabase_service_role_key,
+                bucket=settings.report_attachments_bucket,
+                object_path=storage_path,
+            )
+        for attachment_id in attachment_ids:
+            delete_attachment_by_id(**store, attachment_id=attachment_id)
+        delete_message_by_id(**store, message_id=message_id)
+        raise
+
+    return {
+        "report_id": report_id,
+        "message_id": message_id,
+        "attachments": summaries,
+    }
 
 
 def count_report_attachments(report_id: str, *, settings: Settings) -> int:

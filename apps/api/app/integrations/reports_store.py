@@ -188,6 +188,28 @@ def insert_attachment(
     return rows[0]
 
 
+def delete_attachment_by_id(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    attachment_id: str,
+) -> None:
+    query = urllib.parse.urlencode({"id": f"eq.{attachment_id}"})
+    url = f"{supabase_url.rstrip('/')}/rest/v1/attachments?{query}"
+    _request_json("DELETE", url, headers=_service_headers(service_role_key))
+
+
+def delete_message_by_id(
+    *,
+    supabase_url: str,
+    service_role_key: str,
+    message_id: str,
+) -> None:
+    query = urllib.parse.urlencode({"id": f"eq.{message_id}"})
+    url = f"{supabase_url.rstrip('/')}/rest/v1/messages?{query}"
+    _request_json("DELETE", url, headers=_service_headers(service_role_key))
+
+
 def insert_followup_attachment_atomic(
     *,
     supabase_url: str,

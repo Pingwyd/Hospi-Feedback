@@ -69,10 +69,10 @@ def build_ticket_attachment_views(
     *,
     ticket_code: str,
     attachments: list[dict],
-) -> tuple[list[dict], dict[str, dict]]:
-    """Return report-level attachments and a map message_id -> attachment summary."""
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """Return report-level attachments and a map message_id -> attachment summaries."""
     report_level: list[dict] = []
-    by_message_id: dict[str, dict] = {}
+    by_message_id: dict[str, list[dict]] = {}
     for row in attachments:
         preview_path = reporter_attachment_preview_path(
             ticket_code,
@@ -86,7 +86,9 @@ def build_ticket_attachment_views(
         if message_id is None:
             report_level.append(summary)
         else:
-            by_message_id[str(message_id)] = summary
+            by_message_id.setdefault(str(message_id), []).append(summary)
+    for summaries in by_message_id.values():
+        summaries.sort(key=lambda item: item["uploaded_at"])
     return report_level, by_message_id
 
 
@@ -94,9 +96,9 @@ def build_admin_attachment_views(
     *,
     report_id: str,
     attachments: list[dict],
-) -> tuple[list[dict], dict[str, dict]]:
+) -> tuple[list[dict], dict[str, list[dict]]]:
     report_level: list[dict] = []
-    by_message_id: dict[str, dict] = {}
+    by_message_id: dict[str, list[dict]] = {}
     for row in attachments:
         preview_path = admin_attachment_preview_path(report_id, str(row["id"]))
         summary = serialize_attachment_summary(
@@ -107,8 +109,21 @@ def build_admin_attachment_views(
         if message_id is None:
             report_level.append(summary)
         else:
-            by_message_id[str(message_id)] = summary
+            by_message_id.setdefault(str(message_id), []).append(summary)
+    for summaries in by_message_id.values():
+        summaries.sort(key=lambda item: item["uploaded_at"])
     return report_level, by_message_id
+
+
+def apply_message_attachment_fields(
+    entry: dict,
+    linked: list[dict] | None,
+) -> None:
+    if not linked:
+        return
+    entry["attachments"] = linked
+    if len(linked) == 1:
+        entry["attachment"] = linked[0]
 
 
 def fetch_reporter_attachment_bytes(

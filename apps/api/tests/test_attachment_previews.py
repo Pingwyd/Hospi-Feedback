@@ -238,6 +238,86 @@ def test_ticket_status_includes_report_and_message_attachments(
     assert body["messages"][0]["attachment"]["id"] == ATTACHMENT_ID
 
 
+@patch("app.services.reporter_reports.fetch_attachments_for_report")
+@patch("app.services.reporter_reports.fetch_messages_for_report")
+@patch("app.services.reporter_reports.fetch_report_by_ticket_hash")
+def test_ticket_status_groups_multiple_attachments_on_one_message(
+    fetch_report_mock: MagicMock,
+    fetch_messages_mock: MagicMock,
+    fetch_attachments_mock: MagicMock,
+    client: TestClient,
+) -> None:
+    second_attachment_id = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    fetch_report_mock.return_value = _report_row()
+    fetch_messages_mock.return_value = [
+        {
+            "id": MESSAGE_ID,
+            "sender_type": "reporter",
+            "content": FOLLOWUP_PHOTO_MESSAGE,
+            "created_at": UPLOADED_AT,
+        }
+    ]
+    fetch_attachments_mock.return_value = [
+        _attachment_row(message_id=MESSAGE_ID),
+        {
+            **_attachment_row(message_id=MESSAGE_ID),
+            "id": second_attachment_id,
+            "uploaded_at": "2026-09-03T12:01:00+00:00",
+        },
+    ]
+    _session_cookie(client)
+    response = client.get(f"/api/reports/ticket/{TICKET_B}")
+    assert response.status_code == 200
+    body = response.json()
+    message = body["messages"][0]
+    assert len(message["attachments"]) == 2
+    assert message["attachments"][0]["id"] == ATTACHMENT_ID
+    assert message["attachments"][1]["id"] == second_attachment_id
+    assert message.get("attachment") is None
+
+
+@patch("app.services.reporter_reports.insert_attachment")
+@patch("app.services.reporter_reports.insert_reporter_message")
+@patch("app.services.reporter_reports.upload_object")
+@patch("app.services.reporter_reports.fetch_report_by_ticket_hash")
+def test_follow_up_batch_upload_creates_one_message_and_many_attachments(
+    fetch_mock: MagicMock,
+    upload_mock: MagicMock,
+    insert_message_mock: MagicMock,
+    insert_attachment_mock: MagicMock,
+    client: TestClient,
+) -> None:
+    fetch_mock.return_value = _report_row()
+    insert_message_mock.return_value = {
+        "id": MESSAGE_ID,
+        "sender_type": "reporter",
+        "content": FOLLOWUP_PHOTO_MESSAGE,
+        "created_at": UPLOADED_AT,
+    }
+    insert_attachment_mock.side_effect = [
+        _attachment_row(message_id=MESSAGE_ID),
+        {
+            **_attachment_row(message_id=MESSAGE_ID),
+            "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        },
+    ]
+    _session_cookie(client)
+    png = _minimal_png_bytes()
+    response = client.post(
+        f"/api/reports/ticket/{TICKET_B}/attachments/batch",
+        files=[
+            ("files", ("one.png", png, "image/png")),
+            ("files", ("two.png", png, "image/png")),
+        ],
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["message_id"] == MESSAGE_ID
+    assert len(body["attachments"]) == 2
+    insert_message_mock.assert_called_once()
+    assert insert_attachment_mock.call_count == 2
+
+
 def test_attachment_message_link_migration_exists() -> None:
     from pathlib import Path
 

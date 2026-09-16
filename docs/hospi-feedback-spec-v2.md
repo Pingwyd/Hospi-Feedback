@@ -108,10 +108,19 @@ report_categories (
 attachments (
   id UUID PRIMARY KEY,
   report_id UUID REFERENCES reports(id),
+  message_id UUID NULL REFERENCES messages(id) ON DELETE CASCADE,
   storage_path TEXT NOT NULL,     -- Supabase Storage, EXIF stripped before save
   file_type TEXT,                 -- restricted to image types
   uploaded_at TIMESTAMPTZ DEFAULT now()
 )
+-- message_id NULL: photo attached at initial report submission (report-scoped evidence).
+-- message_id set: photo linked to a row in messages (follow-up thread).
+-- Cardinality: a messages row may have zero, one, or many attachments sharing the same
+-- message_id. This supersedes the early BL-001 mental model of exactly one attachment per
+-- follow-up message. Single follow-up photo uploads still use one message and one attachment
+-- (atomic RPC). When a reporter confirms multiple photos in one action, the API creates one
+-- messages row and N attachment rows with that message_id. Web, admin, and bot UIs render
+-- that as one chat bubble with N thumbnails.
 
 -- Reporter <-> Admin chat thread (per ticket)
 messages (
@@ -225,9 +234,13 @@ POST   /api/access/verify                        Exchange access code for short-
 POST   /api/reports                               Submit a new report -> returns ticket_code (once)
 GET    /api/reports/ticket/{code}                 Fetch report status + chat thread
 POST   /api/reports/ticket/{code}/message         Reporter sends chat message
-POST   /api/reports/ticket/{code}/attachments     Upload image attachment (moved under ticket_code, not raw report id —
-                                                    a leaked internal UUID must not be enough to attach files to someone
-                                                    else's report; ticket code is the only credential that should matter)
+POST   /api/reports/ticket/{code}/attachments     Upload one image under ticket_code (not raw report id). Optional
+                                                    ?link_to_thread=true for follow-up: atomic message+attachment RPC.
+                                                    Ticket code is the only reporter credential for attach scope.
+POST   /api/reports/ticket/{code}/attachments/batch  Multiple follow-up images after one confirm: one messages row,
+                                                    N attachments (per-file sniff, size cap, EXIF strip). len=1 delegates
+                                                    to the single-file atomic path above.
+GET    /api/reports/ticket/{code}/attachments/{attachment_id}  Session-scoped preview bytes (reporters)
 GET    /api/suggestions/public                    List public suggestions for upvoting
 POST   /api/suggestions/{id}/upvote               Upvote (device-fingerprint limited)
 GET    /api/shoutouts/public                      List published shoutouts
