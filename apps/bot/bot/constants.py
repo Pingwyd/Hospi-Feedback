@@ -30,6 +30,20 @@ STATUS_PENDING_PHOTOS_PROMPT_MSG_ID = "status_pending_photos_prompt_msg_id"
 
 STATUS_PHOTOS_SEND_CALLBACK = "status_photos:send"
 STATUS_PHOTOS_DISCARD_CALLBACK = "status_photos:discard"
+
+STATUS_PHOTO_VIEW_MODE_KEY = "status_photo_view_mode"
+STATUS_PHOTO_JPEG_QUALITY_KEY = "status_photo_jpeg_quality"
+STATUS_PHOTO_INBOUND_QUEUE_KEY = "status_photo_inbound_queue"
+STATUS_PHOTO_PROMPT_MSG_ID_KEY = "status_photo_prompt_msg_id"
+STATUS_PHOTO_AWAITING_SHOW_QUALITY_KEY = "status_photo_awaiting_show_quality"
+STATUS_PHOTO_VIEW_SHOW = "show"
+STATUS_PHOTO_VIEW_HIDE = "hide"
+DEFAULT_INBOUND_PHOTO_JPEG_QUALITY = 70
+STATUS_PHOTO_VIEW_CALLBACK_PREFIX = "status_inbound_photo:view:"
+STATUS_PHOTO_QUALITY_CALLBACK_PREFIX = "status_inbound_photo:quality:"
+STATUS_PHOTO_LAST_INBOUND_BATCH_KEY = "status_photo_last_inbound_batch"
+STATUS_PHOTO_RESEND_CALLBACK = "status_inbound_photo:resend:yes"
+STATUS_PHOTO_RESEND_DECLINE_CALLBACK = "status_inbound_photo:resend:no"
 REPORT_PHOTOS_DONE_CALLBACK = "report_photos_done"
 AWAITING_STATUS_CODE_KEY = "awaiting_status_code"
 AWAITING_ACCESS_CODE_KEY = "awaiting_access_code"
@@ -38,6 +52,7 @@ PERSISTENT_KEYBOARD_ATTACHED_KEY = "persistent_keyboard_attached"
 
 PERSISTENT_MENU_LABEL = "Menu"
 PERSISTENT_CANCEL_LABEL = "Cancel"
+PERSISTENT_QUALITY_LABEL = "/quality"
 
 SESSION_EXPIRED_ACCESS_CODE_MSG = (
     "Your session expired. Enter your access code to continue."
@@ -70,6 +85,7 @@ HELP_TEXT = (
     "/start - enter access code and open the main menu\n"
     "/menu - show the main menu again\n"
     "/status <code> - check a ticket and chat with admins\n"
+    "/quality - set photo download size (50%, 70%, or 90%) for this session\n"
     "While a /status session is active, admin replies arrive automatically.\n"
     "/cancel - stop the current flow\n"
     "/help - show this message\n\n"

@@ -23,6 +23,9 @@ MIME_TO_PIL_FORMAT: dict[str, str] = {
     "image/webp": "WEBP",
 }
 
+ALLOWED_DELIVERY_JPEG_QUALITIES: frozenset[int] = frozenset({50, 70, 90})
+DEFAULT_DELIVERY_JPEG_QUALITY = 70
+
 
 def prepare_image_for_storage(data: bytes, *, max_bytes: int) -> tuple[bytes, str, str]:
     """Return stripped bytes, mime type, and file extension."""
@@ -62,3 +65,40 @@ def prepare_image_for_storage(data: bytes, *, max_bytes: int) -> tuple[bytes, st
     stripped = output.getvalue()
     extension = MIME_TO_EXTENSION[mime]
     return stripped, mime, extension
+
+
+def transcode_image_for_delivery(
+    data: bytes,
+    *,
+    jpeg_quality: int,
+) -> tuple[bytes, str]:
+    """Re-encode stored image bytes for bandwidth-conscious delivery."""
+    if jpeg_quality not in ALLOWED_DELIVERY_JPEG_QUALITIES:
+        raise AttachmentRejectedError("Unsupported delivery quality.")
+    if not data:
+        raise AttachmentRejectedError("Empty file is not allowed.")
+
+    detected = filetype.guess(data)
+    if detected is None or detected.mime not in ALLOWED_IMAGE_MIMES:
+        raise AttachmentRejectedError("Only JPEG, PNG, and WebP images are allowed.")
+
+    try:
+        image = Image.open(io.BytesIO(data))
+        image.verify()
+        image = Image.open(io.BytesIO(data))
+    except (UnidentifiedImageError, OSError) as exc:
+        raise AttachmentRejectedError(
+            "Only JPEG, PNG, and WebP images are allowed.",
+        ) from exc
+
+    if image.mode not in {"RGB", "L"}:
+        image = image.convert("RGB")
+
+    output = io.BytesIO()
+    image.save(
+        output,
+        format="JPEG",
+        quality=jpeg_quality,
+        optimize=True,
+    )
+    return output.getvalue(), "image/jpeg"

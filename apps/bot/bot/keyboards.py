@@ -20,6 +20,7 @@ from bot.constants import (
     MENU_KEEP_CALLBACK,
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
     REPORT_CALLBACK_PREFIX,
     REPORT_PHOTOS_DONE_CALLBACK,
     SKIP_CALLBACK,
@@ -34,7 +35,8 @@ def persistent_reply_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(PERSISTENT_MENU_LABEL),
                 KeyboardButton(PERSISTENT_CANCEL_LABEL),
-            ]
+            ],
+            [KeyboardButton(PERSISTENT_QUALITY_LABEL)],
         ],
         resize_keyboard=True,
         is_persistent=True,
@@ -157,6 +159,73 @@ def discard_confirm_keyboard(action: str) -> InlineKeyboardMarkup:
                 )
             ],
             [InlineKeyboardButton("Keep report", callback_data=MENU_KEEP_CALLBACK)],
+        ]
+    )
+
+
+def inbound_photo_view_keyboard() -> InlineKeyboardMarkup:
+    from bot.constants import (
+        STATUS_PHOTO_VIEW_CALLBACK_PREFIX,
+        STATUS_PHOTO_VIEW_HIDE,
+        STATUS_PHOTO_VIEW_SHOW,
+    )
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Show photos this session",
+                    callback_data=f"{STATUS_PHOTO_VIEW_CALLBACK_PREFIX}{STATUS_PHOTO_VIEW_SHOW}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "Skip photos this session",
+                    callback_data=f"{STATUS_PHOTO_VIEW_CALLBACK_PREFIX}{STATUS_PHOTO_VIEW_HIDE}",
+                )
+            ],
+        ]
+    )
+
+
+def inbound_photo_quality_keyboard() -> InlineKeyboardMarkup:
+    from bot.constants import STATUS_PHOTO_QUALITY_CALLBACK_PREFIX
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Smaller file (50%)",
+                    callback_data=f"{STATUS_PHOTO_QUALITY_CALLBACK_PREFIX}50",
+                ),
+                InlineKeyboardButton(
+                    "Balanced (70%)",
+                    callback_data=f"{STATUS_PHOTO_QUALITY_CALLBACK_PREFIX}70",
+                ),
+                InlineKeyboardButton(
+                    "Larger file (90%)",
+                    callback_data=f"{STATUS_PHOTO_QUALITY_CALLBACK_PREFIX}90",
+                ),
+            ]
+        ]
+    )
+
+
+def inbound_photo_resend_keyboard() -> InlineKeyboardMarkup:
+    from bot.constants import (
+        STATUS_PHOTO_RESEND_CALLBACK,
+        STATUS_PHOTO_RESEND_DECLINE_CALLBACK,
+    )
+
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Resend", callback_data=STATUS_PHOTO_RESEND_CALLBACK),
+                InlineKeyboardButton(
+                    "No thanks",
+                    callback_data=STATUS_PHOTO_RESEND_DECLINE_CALLBACK,
+                ),
+            ]
         ]
     )
 

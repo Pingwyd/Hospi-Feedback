@@ -13,6 +13,7 @@ from bot.constants import (
     STATUS_PENDING_PHOTOS_PROMPT_MSG_ID,
     STATUS_TICKET_KEY,
 )
+from bot.inbound_photo_delivery import clear_inbound_ticket_photo_state
 from bot.sessions import access_token
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ def clear_status_ticket_session(
     user_data.pop(STATUS_TICKET_KEY, None)
     user_data.pop(STATUS_PENDING_PHOTOS_KEY, None)
     user_data.pop(STATUS_PENDING_PHOTOS_PROMPT_MSG_ID, None)
+    clear_inbound_ticket_photo_state(user_data)
     if chat_id is not None:
         unregister_live_relay(application, chat_id)
 

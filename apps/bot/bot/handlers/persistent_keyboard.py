@@ -1,4 +1,4 @@
-"""Shared intercept for persistent reply-keyboard Menu and Cancel labels."""
+"""Shared intercept for persistent reply-keyboard Menu, Cancel, and /quality."""
 
 from __future__ import annotations
 
@@ -7,7 +7,11 @@ from typing import Literal
 from telegram import Update
 from telegram.ext import ContextTypes, ConversationHandler
 
-from bot.constants import PERSISTENT_CANCEL_LABEL, PERSISTENT_MENU_LABEL
+from bot.constants import (
+    PERSISTENT_CANCEL_LABEL,
+    PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
+)
 from bot.handlers.start import cancel_command, menu_command
 
 HandledState = int | None
@@ -28,6 +32,11 @@ async def try_handle_persistent_keyboard(
         return state
     if text == PERSISTENT_CANCEL_LABEL:
         return await cancel_command(update, context)
+    if text == PERSISTENT_QUALITY_LABEL:
+        from bot.handlers.status import quality_command
+
+        await quality_command(update, context)
+        return ConversationHandler.END
     return False
 
 

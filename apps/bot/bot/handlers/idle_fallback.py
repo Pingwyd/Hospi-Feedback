@@ -10,6 +10,7 @@ from bot.constants import (
     LAPSED_SESSION_NUDGE,
     PERSISTENT_CANCEL_LABEL,
     PERSISTENT_MENU_LABEL,
+    PERSISTENT_QUALITY_LABEL,
     UNAUTHENTICATED_FIRST_TOUCH_NUDGE,
 )
 from bot.session_flags import (
@@ -25,7 +26,11 @@ async def idle_unrecognized_text(
     if update.message is None or update.message.text is None:
         return
     text = update.message.text.strip()
-    if text in (PERSISTENT_MENU_LABEL, PERSISTENT_CANCEL_LABEL):
+    if text in (
+        PERSISTENT_MENU_LABEL,
+        PERSISTENT_CANCEL_LABEL,
+        PERSISTENT_QUALITY_LABEL,
+    ):
         return
 
     user_data = context.user_data

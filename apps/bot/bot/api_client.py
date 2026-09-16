@@ -176,13 +176,18 @@ class HospiApiClient:
         *,
         token: str,
         preview_url: str,
+        jpeg_quality: int | None = None,
     ) -> tuple[bytes, str]:
         path = preview_url if preview_url.startswith("/") else f"/{preview_url}"
         headers = {"Authorization": f"Bearer {token}"}
+        params: dict[str, str] = {}
+        if jpeg_quality is not None:
+            params["quality"] = str(jpeg_quality)
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.get(
                 f"{self._base_url}{path}",
                 headers=headers,
+                params=params or None,
             )
         if response.is_success:
             content_type = response.headers.get(

@@ -34,6 +34,7 @@ from bot.keyboards import (
     severity_keyboard,
     skip_keyboard,
 )
+from bot.inbound_photo_delivery import clear_inbound_photo_prefs
 from bot.live_relay import clear_status_ticket_session
 from bot.session_flags import (
     clear_awaiting_access_code,
@@ -63,6 +64,7 @@ def _clear_stale_session_data(
     chat_id: int | None = None,
 ) -> None:
     clear_access_session(user_data)
+    clear_inbound_photo_prefs(user_data)
     user_data.pop(REPORT_DRAFT_KEY, None)
     user_data.pop(REPORT_FLOW_STATE_KEY, None)
     if application is not None:
