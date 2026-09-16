@@ -17,6 +17,7 @@ import {
   type AdminTeamMember,
 } from "@/lib/api/admin-fetch";
 import { fetchEscalationContacts } from "@/lib/api/admin-dashboard";
+import { useComposeEnterToSend } from "@/lib/hooks/useComposeEnterToSend";
 import {
   addInternalNote,
   assignReport,
@@ -397,7 +398,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     }
   }
 
-  async function handleAddNote() {
+  const handleAddNote = useCallback(async () => {
     if (!noteText.trim()) {
       return;
     }
@@ -420,9 +421,9 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     } finally {
       setBusy(false);
     }
-  }
+  }, [noteText, reportId]);
 
-  async function handleSendMessage() {
+  const handleSendMessage = useCallback(async () => {
     if (!messageText.trim()) {
       return;
     }
@@ -442,7 +443,21 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
     } finally {
       setBusy(false);
     }
-  }
+  }, [messageText, reportId]);
+
+  const handleReporterMessageKeyDown = useComposeEnterToSend({
+    canSend: !busy && Boolean(messageText.trim()),
+    onSend: () => {
+      void handleSendMessage();
+    },
+  });
+
+  const handleInternalNoteKeyDown = useComposeEnterToSend({
+    canSend: !busy && Boolean(noteText.trim()),
+    onSend: () => {
+      void handleAddNote();
+    },
+  });
 
   async function handleEscalate() {
     if (!escalationContactId) {
@@ -768,12 +783,14 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
             ))}
           </div>
           {hasPermission("respond") ? (
-            <div className="mt-4 flex gap-2">
-              <input
+            <div className="mt-4 flex items-end gap-2">
+              <textarea
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
+                onKeyDown={handleReporterMessageKeyDown}
+                rows={2}
                 placeholder="Reply to reporter"
-                className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+                className="min-w-0 flex-1 resize-y rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
               />
               <button
                 type="button"
@@ -814,6 +831,7 @@ export function ReportDetailPanel({ reportId }: ReportDetailPanelProps) {
               <textarea
                 value={noteText}
                 onChange={(event) => setNoteText(event.target.value)}
+                onKeyDown={handleInternalNoteKeyDown}
                 rows={3}
                 placeholder="Add an internal note"
                 className="w-full rounded-lg border border-ink/15 bg-paper px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
