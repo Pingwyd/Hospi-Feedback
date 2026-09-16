@@ -224,6 +224,7 @@ export function ReportInbox() {
             />
           </label>
           <AdminSelect
+            id="inbox-filter-status"
             label={
               <span className="flex items-center gap-2">
                 <Filter size={16} aria-hidden="true" />
@@ -239,6 +240,7 @@ export function ReportInbox() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <AdminSelect
+            id="inbox-filter-type"
             label="Report type"
             value={type}
             options={TYPE_OPTIONS}
@@ -246,6 +248,7 @@ export function ReportInbox() {
             placeholder="All types"
           />
           <AdminSelect
+            id="inbox-filter-severity"
             label="Severity"
             value={severity}
             options={SEVERITY_OPTIONS}
@@ -253,6 +256,7 @@ export function ReportInbox() {
             placeholder="All severities"
           />
           <AdminDatePicker
+            id="inbox-filter-from"
             label="Submitted from"
             value={from}
             onChange={setFrom}
@@ -260,6 +264,7 @@ export function ReportInbox() {
             max={to || undefined}
           />
           <AdminDatePicker
+            id="inbox-filter-to"
             label="Submitted to"
             value={to}
             onChange={setTo}

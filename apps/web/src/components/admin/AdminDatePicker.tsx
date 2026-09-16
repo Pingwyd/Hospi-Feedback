@@ -34,6 +34,7 @@ type AdminDatePickerProps = {
   min?: string;
   max?: string;
   id?: string;
+  labelId?: string;
 };
 
 export function AdminDatePicker({
@@ -45,9 +46,12 @@ export function AdminDatePicker({
   min,
   max,
   id: idProp,
+  labelId: labelIdProp,
 }: AdminDatePickerProps) {
   const generatedId = useId();
+  const generatedLabelId = useId();
   const triggerId = idProp ?? generatedId;
+  const labelId = labelIdProp ?? generatedLabelId;
   const dialogId = `${triggerId}-dialog`;
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState<CalendarMonth>(() => {
@@ -181,12 +185,15 @@ export function AdminDatePicker({
 
   return (
     <div ref={rootRef} className="relative block">
-      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
+      <span id={labelId} className="mb-1 block text-sm font-medium text-ink">
+        {label}
+      </span>
       <button
         ref={triggerRef}
         id={triggerId}
         type="button"
         disabled={disabled}
+        aria-labelledby={labelId}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
