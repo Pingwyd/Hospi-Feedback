@@ -13,6 +13,7 @@ from app.services.reporter_reports import (
     create_report,
     get_ticket_status,
     post_reporter_message,
+    upload_followup_attachments_batch,
     upload_report_attachment,
 )
 
@@ -49,6 +50,7 @@ class MessageResponse(BaseModel):
     content: str
     created_at: str
     attachment: AttachmentSummary | None = None
+    attachments: list[AttachmentSummary] = Field(default_factory=list)
 
 
 class TicketStatusResponse(BaseModel):
@@ -73,6 +75,12 @@ class AttachmentResponse(BaseModel):
     uploaded_at: str
     message_id: str | None = None
     preview_url: str | None = None
+
+
+class FollowUpAttachmentsBatchResponse(BaseModel):
+    report_id: str
+    message_id: str
+    attachments: list[AttachmentSummary]
 
 
 # TODO(phase-3-followup): rate limit POST /api/reports
@@ -192,6 +200,35 @@ async def upload_ticket_attachment(
             },
         )
     return AttachmentResponse(**payload)
+
+
+@router.post(
+    "/api/reports/ticket/{ticket_code}/attachments/batch",
+    response_model=FollowUpAttachmentsBatchResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_ticket_attachments_batch(
+    ticket_code: str,
+    _session: Annotated[dict[str, Any], Depends(require_access_session)],
+    settings: Settings = Depends(get_settings),
+    files: list[UploadFile] = File(...),
+) -> FollowUpAttachmentsBatchResponse:
+    file_bytes_list = [await upload.read() for upload in files]
+    payload = upload_followup_attachments_batch(
+        ticket_code,
+        file_bytes_list,
+        settings=settings,
+    )
+    await broadcast_admin_event(
+        "new_message",
+        {
+            "report_id": payload["report_id"],
+            "message_id": payload["message_id"],
+            "sender_type": "reporter",
+            "created_at": payload["attachments"][-1]["uploaded_at"],
+        },
+    )
+    return FollowUpAttachmentsBatchResponse(**payload)
 
 
 @router.get("/api/reports/ticket/{ticket_code}/attachments/{attachment_id}")

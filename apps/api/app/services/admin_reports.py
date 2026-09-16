@@ -23,7 +23,10 @@ from app.integrations.reports_store import (
     patch_report_fields,
 )
 from app.services.admin_ws import broadcast_admin_event
-from app.services.attachment_delivery import build_admin_attachment_views
+from app.services.attachment_delivery import (
+    apply_message_attachment_fields,
+    build_admin_attachment_views,
+)
 from app.services.audit_log import AuditAction, write_audit_log
 from app.services.escalation_export import generate_escalation_export
 from app.services.recusal_enforcement import (
@@ -113,9 +116,7 @@ def get_admin_report(
             "content": message["content"],
             "created_at": message["created_at"],
         }
-        linked = by_message_id.get(message_row_id)
-        if linked is not None:
-            entry["attachment"] = linked
+        apply_message_attachment_fields(entry, by_message_id.get(message_row_id))
         serialized_messages.append(entry)
     return {
         "report": report,
