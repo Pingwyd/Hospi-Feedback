@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Calendar, FileDown, Filter, Search } from "lucide-react";
+import { AlertCircle, FileDown, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { AdminDatePicker } from "@/components/admin/AdminDatePicker";
 import { AdminSelect } from "@/components/admin/AdminSelect";
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
@@ -223,6 +224,7 @@ export function ReportInbox() {
             />
           </label>
           <AdminSelect
+            id="inbox-filter-status"
             label={
               <span className="flex items-center gap-2">
                 <Filter size={16} aria-hidden="true" />
@@ -238,6 +240,7 @@ export function ReportInbox() {
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <AdminSelect
+            id="inbox-filter-type"
             label="Report type"
             value={type}
             options={TYPE_OPTIONS}
@@ -245,36 +248,29 @@ export function ReportInbox() {
             placeholder="All types"
           />
           <AdminSelect
+            id="inbox-filter-severity"
             label="Severity"
             value={severity}
             options={SEVERITY_OPTIONS}
             onChange={setSeverity}
             placeholder="All severities"
           />
-          <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Calendar size={16} aria-hidden="true" />
-              Submitted from
-            </span>
-            <input
-              type="date"
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
-              className={FIELD_INPUT_CLASS}
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Calendar size={16} aria-hidden="true" />
-              Submitted to
-            </span>
-            <input
-              type="date"
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-              className={FIELD_INPUT_CLASS}
-            />
-          </label>
+          <AdminDatePicker
+            id="inbox-filter-from"
+            label="Submitted from"
+            value={from}
+            onChange={setFrom}
+            placeholder="Any start date"
+            max={to || undefined}
+          />
+          <AdminDatePicker
+            id="inbox-filter-to"
+            label="Submitted to"
+            value={to}
+            onChange={setTo}
+            placeholder="Any end date"
+            min={from || undefined}
+          />
         </div>
 
         {canExport ? (

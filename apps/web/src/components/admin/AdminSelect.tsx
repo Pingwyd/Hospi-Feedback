@@ -24,6 +24,8 @@ type AdminSelectProps = {
   disabled?: boolean;
   placeholder?: string;
   id?: string;
+  /** Associates the visible label with the trigger for assistive tech. */
+  labelId?: string;
 };
 
 export function AdminSelect({
@@ -34,9 +36,12 @@ export function AdminSelect({
   disabled = false,
   placeholder = "Select",
   id: idProp,
+  labelId: labelIdProp,
 }: AdminSelectProps) {
   const generatedId = useId();
+  const generatedLabelId = useId();
   const triggerId = idProp ?? generatedId;
+  const labelId = labelIdProp ?? generatedLabelId;
   const listboxId = `${triggerId}-listbox`;
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -170,12 +175,15 @@ export function AdminSelect({
 
   return (
     <div ref={rootRef} className="relative block">
-      <span className="mb-1 block text-sm font-medium text-ink">{label}</span>
+      <span id={labelId} className="mb-1 block text-sm font-medium text-ink">
+        {label}
+      </span>
       <button
         ref={triggerRef}
         id={triggerId}
         type="button"
         disabled={disabled}
+        aria-labelledby={labelId}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
