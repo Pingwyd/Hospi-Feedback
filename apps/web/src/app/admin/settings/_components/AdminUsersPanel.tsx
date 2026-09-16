@@ -1,11 +1,12 @@
 "use client";
 
 import { KeyRound, Plus, UserX } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { ApiError } from "@/lib/api/admin-fetch";
+import { adminSubunitDisplayLabel } from "@/lib/admin-subunits";
 import {
   ADMIN_ROLES,
   createAdminUser,
@@ -26,6 +27,22 @@ function roleLabel(role: string): string {
 
 function statusBadgeClass(active: boolean): string {
   return active ? "bg-sage/15 text-sage" : "bg-ink/10 text-ink/60";
+}
+
+function subunitCellContent(subunit: string | null): ReactNode {
+  if (subunit === null) {
+    return "N/A";
+  }
+  const { label, unlisted } = adminSubunitDisplayLabel(subunit);
+  if (!unlisted) {
+    return label;
+  }
+  return (
+    <>
+      {label}{" "}
+      <span className="text-xs text-ink/50">(Unlisted value)</span>
+    </>
+  );
 }
 
 export function AdminUsersPanel() {
@@ -196,7 +213,7 @@ export function AdminUsersPanel() {
                       </td>
                       <td className="px-4 py-3 text-ink/70">{roleLabel(admin.role)}</td>
                       <td className="px-4 py-3 text-ink/70">
-                        {admin.subunit ?? "N/A"}
+                        {subunitCellContent(admin.subunit)}
                       </td>
                       <td className="px-4 py-3">
                         <span

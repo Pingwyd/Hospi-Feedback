@@ -3,11 +3,16 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { AdminSelect } from "@/components/admin/AdminSelect";
 import {
   ADMIN_ROLES,
   type AdminRole,
   type CreateAdminInput,
 } from "@/lib/api/admin-settings";
+import {
+  ADMIN_SUBUNIT_OPTIONS,
+  adminRoleRequiresSubunit,
+} from "@/lib/admin-subunits";
 
 import { AdminPermissionsEditor } from "./AdminPermissionsEditor";
 
@@ -49,6 +54,8 @@ export function AdminUserCreateModal({
     return null;
   }
 
+  const subunitRequired = adminRoleRequiresSubunit(form.role);
+
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSave({
@@ -56,7 +63,7 @@ export function AdminUserCreateModal({
       email: form.email.trim(),
       password: form.password,
       role: form.role,
-      subunit: form.subunit.trim() || null,
+      subunit: subunitRequired ? form.subunit || null : null,
       permissions: form.permissions,
     });
   }
@@ -145,12 +152,14 @@ export function AdminUserCreateModal({
               </span>
               <select
                 value={form.role}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const role = event.target.value as AdminRole;
                   setForm((current) => ({
                     ...current,
-                    role: event.target.value as AdminRole,
-                  }))
-                }
+                    role,
+                    subunit: adminRoleRequiresSubunit(role) ? current.subunit : "",
+                  }));
+                }}
                 required
                 className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
               >
@@ -162,17 +171,24 @@ export function AdminUserCreateModal({
               </select>
             </label>
 
-            <label className="block">
-              <span className="mb-1 text-sm font-medium text-ink">Subunit</span>
-              <input
-                value={form.subunit}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, subunit: event.target.value }))
+            {subunitRequired ? (
+              <AdminSelect
+                id="admin-create-subunit"
+                label={
+                  <>
+                    Subunit<span className="text-brass">*</span>
+                  </>
                 }
-                placeholder="Optional"
-                className="w-full rounded-lg border border-ink/15 bg-surface/80 px-4 py-3 text-sm outline-none ring-sage/30 focus:border-sage focus:ring-2"
+                value={form.subunit}
+                options={ADMIN_SUBUNIT_OPTIONS}
+                onChange={(subunit) =>
+                  setForm((current) => ({ ...current, subunit }))
+                }
+                placeholder="Select subunit"
               />
-            </label>
+            ) : (
+              <div className="hidden sm:block" aria-hidden="true" />
+            )}
           </div>
 
           <AdminPermissionsEditor
@@ -196,7 +212,8 @@ export function AdminUserCreateModal({
                 saving ||
                 !form.full_name.trim() ||
                 !form.email.trim() ||
-                form.password.length < 12
+                form.password.length < 12 ||
+                (subunitRequired && !form.subunit)
               }
               className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
