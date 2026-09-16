@@ -7,17 +7,24 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { checkAccessSession } from "@/lib/api/access";
-import { AttachmentPreview } from "@/components/shared/AttachmentPreview";
+import { ChatImageAttachment } from "@/components/shared/ChatImageAttachment";
+import { MessageAttachmentGrid } from "@/components/shared/MessageAttachmentGrid";
+import { PhotoConfirmModal } from "@/components/shared/PhotoConfirmModal";
 import {
   type Message,
   type TicketStatusResponse,
   fetchTicketStatus,
   postReporterMessage,
-  uploadAttachment,
+  uploadFollowUpAttachmentsBatch,
 } from "@/lib/api/reports";
+import {
+  attachmentsMatch,
+  messageAttachments,
+  shouldShowMessageText,
+} from "@/lib/messages/attachments";
+import { formatMaxAttachmentSize } from "@/lib/attachments/constants";
+import { usePhotoConfirmFlow } from "@/lib/hooks/usePhotoConfirmFlow";
 import { useReporterTicketWebSocket } from "@/lib/hooks/useReporterTicketWebSocket";
-
-const PHOTO_PLACEHOLDER = "Photo attached";
 
 type StatusPanelProps = {
   ticketCode: string;
@@ -32,8 +39,7 @@ function messagesMatch(existing: Message, incoming: Message): boolean {
     existing.content === incoming.content &&
     existing.sender_type === incoming.sender_type &&
     existing.created_at === incoming.created_at &&
-    existing.attachment?.id === incoming.attachment?.id &&
-    existing.attachment?.preview_url === incoming.attachment?.preview_url
+    attachmentsMatch(messageAttachments(existing), messageAttachments(incoming))
   );
 }
 
@@ -86,6 +92,7 @@ function mergeTicketStatus(
 export function StatusPanel({ ticketCode }: StatusPanelProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addPhotoButtonRef = useRef<HTMLButtonElement>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<TicketStatusResponse | null>(null);
@@ -93,7 +100,7 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [photoStatusMessage, setPhotoStatusMessage] = useState<string | null>(null);
   const messageIdsRef = useRef<Set<string>>(new Set());
 
   const loadStatus = useCallback(async (options?: { silent?: boolean }) => {
@@ -149,6 +156,31 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     await loadStatus({ silent: true });
   }, [loadStatus]);
 
+  const isClosedForPhotos = data?.status === "closed";
+
+  const photoFlow = usePhotoConfirmFlow({
+    disabled: isClosedForPhotos,
+    onValidationErrors: (messages) => {
+      setActionError(messages.join(" "));
+    },
+    onConfirm: async (files) => {
+      try {
+        await uploadFollowUpAttachmentsBatch(ticketCode, files);
+        await loadStatus({ silent: true });
+        setPhotoStatusMessage(
+          files.length > 1 ? `${files.length} photos sent.` : "Photo sent.",
+        );
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setActionError(err.message);
+        } else {
+          setActionError("Could not upload attachment.");
+        }
+        throw err;
+      }
+    },
+  });
+
   const { connectionState } = useReporterTicketWebSocket({
     ticketCode,
     enabled: !checkingSession && !loading && data !== null,
@@ -198,28 +230,19 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
     }
   }
 
-  async function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file || data?.status === "closed") {
+  function handleAttachmentSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    if (data?.status === "closed" || photoFlow.isBusy || photoFlow.confirming) {
+      event.target.value = "";
+      return;
+    }
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) {
       return;
     }
     setActionError(null);
-    setUploading(true);
-    try {
-      await uploadAttachment(ticketCode, file, { linkToThread: true });
-      await loadStatus({ silent: true });
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setActionError(err.message);
-      } else {
-        setActionError("Could not upload attachment.");
-      }
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
+    setPhotoStatusMessage(null);
+    photoFlow.enqueueFiles(files);
   }
 
   if (checkingSession || loading) {
@@ -311,10 +334,10 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
       {(data.report_attachments?.length ?? 0) > 0 ? (
         <section className="rounded-2xl border border-ink/10 bg-surface/60 p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-ink">Photos on original report</h2>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="flex flex-wrap gap-3">
             {data.report_attachments.map((attachment) => (
               <li key={attachment.id}>
-                <AttachmentPreview
+                <ChatImageAttachment
                   previewUrl={attachment.preview_url}
                   alt="Original report photo"
                   authMode="session"
@@ -343,14 +366,12 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/50">
                   {entry.sender_type}
                 </p>
-                {entry.attachment ? (
-                  <AttachmentPreview
-                    previewUrl={entry.attachment.preview_url}
-                    alt="Follow-up photo"
-                    authMode="session"
-                  />
-                ) : null}
-                {entry.content !== PHOTO_PLACEHOLDER || !entry.attachment ? (
+                <MessageAttachmentGrid
+                  attachments={messageAttachments(entry)}
+                  altPrefix="Follow-up photo"
+                  authMode="session"
+                />
+                {shouldShowMessageText(entry) ? (
                   <p className="whitespace-pre-wrap">{entry.content}</p>
                 ) : null}
               </li>
@@ -387,27 +408,70 @@ export function StatusPanel({ ticketCode }: StatusPanelProps) {
             </button>
           </form>
 
-          <div>
+          <div className="space-y-4">
             <input
               ref={fileInputRef}
               id="status-photo"
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              multiple
               onChange={handleAttachmentSelected}
               className="sr-only"
             />
             <button
+              ref={addPhotoButtonRef}
               type="button"
-              disabled={uploading}
+              disabled={photoFlow.isBusy || photoFlow.modalOpen}
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-lg border border-dashed border-ink/20 px-4 py-2 text-sm font-medium text-ink transition hover:border-sage hover:text-sage disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg border border-dashed border-ink/20 bg-paper px-4 py-2 text-sm font-medium text-ink transition hover:border-sage hover:text-sage disabled:opacity-60"
             >
               <ImagePlus size={16} aria-hidden />
-              {uploading ? "Uploading..." : "Add photo"}
+              {photoFlow.confirming ? "Uploading..." : "Add photo"}
             </button>
+            <p className="text-xs text-ink/60">
+              JPEG, PNG, or WebP. Up to {formatMaxAttachmentSize()} per photo. Select several
+              at once to review them together before sending.
+            </p>
+
+            {photoStatusMessage && !photoFlow.modalOpen ? (
+              <p className="text-sm text-ink/70" role="status">
+                {photoStatusMessage}
+              </p>
+            ) : null}
           </div>
         </section>
       )}
+
+      <PhotoConfirmModal
+        open={photoFlow.modalOpen}
+        items={photoFlow.pendingItems.map((item) => ({
+          id: item.id,
+          previewUrl: item.previewUrl,
+          fileName: item.file.name,
+        }))}
+        title="Photos ready to send"
+        description="Review each photo below before sending them to the team."
+        confirmLabel={
+          photoFlow.pendingItems.length > 1
+            ? `Send ${photoFlow.pendingItems.length} photos to thread`
+            : "Send photo to thread"
+        }
+        confirming={photoFlow.confirming}
+        onConfirm={() => {
+          void photoFlow.handleConfirm();
+        }}
+        onAddMorePhotos={() => {
+          if (!photoFlow.isBusy) {
+            fileInputRef.current?.click();
+          }
+        }}
+        onRemoveItem={photoFlow.removePendingItem}
+        onCancel={() => {
+          photoFlow.handleCancel();
+          setPhotoStatusMessage("Photos discarded.");
+        }}
+        returnFocusRef={addPhotoButtonRef}
+      />
 
       {actionError ? (
         <p

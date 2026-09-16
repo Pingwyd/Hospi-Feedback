@@ -30,6 +30,7 @@ export type Message = {
   content: string;
   created_at: string;
   attachment?: AttachmentSummary | null;
+  attachments?: AttachmentSummary[];
 };
 
 export type TicketStatusResponse = {
@@ -85,6 +86,29 @@ export async function uploadAttachment(
   const query = options.linkToThread ? "?link_to_thread=true" : "";
   return apiFetch<AttachmentResponse>(
     `/api/reports/ticket/${encodeURIComponent(ticketCode)}/attachments${query}`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+}
+
+export type FollowUpAttachmentsBatchResponse = {
+  report_id: string;
+  message_id: string;
+  attachments: AttachmentSummary[];
+};
+
+export async function uploadFollowUpAttachmentsBatch(
+  ticketCode: string,
+  files: File[],
+): Promise<FollowUpAttachmentsBatchResponse> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  return apiFetch<FollowUpAttachmentsBatchResponse>(
+    `/api/reports/ticket/${encodeURIComponent(ticketCode)}/attachments/batch`,
     {
       method: "POST",
       body: formData,
