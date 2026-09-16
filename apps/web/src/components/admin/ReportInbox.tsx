@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Calendar, FileDown, Filter, Search } from "lucide-react";
+import { AlertCircle, FileDown, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { AdminDatePicker } from "@/components/admin/AdminDatePicker";
 import { AdminSelect } from "@/components/admin/AdminSelect";
 import { useAdminSession } from "@/components/admin/AdminSessionProvider";
 import { SkeletonCard } from "@/components/admin/SkeletonBlock";
@@ -251,30 +252,20 @@ export function ReportInbox() {
             onChange={setSeverity}
             placeholder="All severities"
           />
-          <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Calendar size={16} aria-hidden="true" />
-              Submitted from
-            </span>
-            <input
-              type="date"
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
-              className={FIELD_INPUT_CLASS}
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
-              <Calendar size={16} aria-hidden="true" />
-              Submitted to
-            </span>
-            <input
-              type="date"
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-              className={FIELD_INPUT_CLASS}
-            />
-          </label>
+          <AdminDatePicker
+            label="Submitted from"
+            value={from}
+            onChange={setFrom}
+            placeholder="Any start date"
+            max={to || undefined}
+          />
+          <AdminDatePicker
+            label="Submitted to"
+            value={to}
+            onChange={setTo}
+            placeholder="Any end date"
+            min={from || undefined}
+          />
         </div>
 
         {canExport ? (
